@@ -1,15 +1,19 @@
 const steps = [
   {
     title: "Paste your recipe",
-    body: "Drop in an ingredient list or a whole recipe. We read the amounts for you.",
+    body: "Ingredients with amounts, servings, and your steps if you have them.",
+  },
+  {
+    title: "Check what we read",
+    body: "Fix any amounts or ingredients we got wrong, and see the original macros.",
   },
   {
     title: "Pick a goal",
-    body: "More protein, fewer carbs, lower fat, or a calorie target per serving.",
+    body: "More protein, fewer calories, fewer carbs, or less fat.",
   },
   {
-    title: "Review the swaps",
-    body: "See each suggested change and how it moves your macros, then keep the ones you like.",
+    title: "Compare before and after",
+    body: "See each swap, why it helps, what changes in taste or texture, and whether the goal was met.",
   },
 ];
 
@@ -23,7 +27,7 @@ export function HowItWorks() {
         <h2 className="font-display text-5xl tracking-tight">
           How it works
         </h2>
-        <ol className="mt-10 grid gap-10 md:grid-cols-3">
+        <ol className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, i) => (
             <li key={step.title} className="flex gap-4">
               <span className="w-8 shrink-0 font-display text-6xl leading-[0.8] text-primary tabular-nums">

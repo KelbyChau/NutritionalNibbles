@@ -66,7 +66,8 @@ export function MacroSwapPreview() {
       </dl>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        Thin bar: original recipe. Thick bar: after the swap.
+        Illustrative numbers, not calculated. Thin bar: original recipe.
+        Thick bar: after the swap.
       </p>
     </figure>
   );

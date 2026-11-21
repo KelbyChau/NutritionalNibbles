@@ -17,7 +17,7 @@ export function Hero() {
           <span className="block">Change the macros.</span>
         </h1>
         <p className="mt-6 max-w-[34ch] font-display text-2xl leading-snug text-muted-foreground sm:text-3xl">
-          Ingredient swaps that hit your protein, carb or fat goal.
+          Practical swaps for more protein or fewer calories, carbs or fat.
         </p>
         <div className="mt-10 flex flex-wrap items-center gap-6">
           <Button

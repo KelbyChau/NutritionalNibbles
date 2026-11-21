@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 // page can read searchParams.recipe and searchParams.goal.
 const goals = [
   { value: "more-protein", label: "More protein" },
+  { value: "fewer-calories", label: "Fewer calories" },
   { value: "fewer-carbs", label: "Fewer carbs" },
   { value: "less-fat", label: "Less fat" },
-  { value: "fewer-calories", label: "Fewer calories" },
 ];
 
 const examplePlaceholder = `Chicken alfredo (serves 4)
@@ -33,7 +33,7 @@ export function HeroPaste() {
         </h1>
         <p className="mt-6 max-w-[40ch] font-display text-2xl leading-snug text-muted-foreground sm:text-3xl">
           We suggest ingredient swaps and show what each one does to your
-          protein, carbs and fat.
+          calories, protein, carbs and fat.
         </p>
       </div>
     </section>
@@ -89,7 +89,12 @@ export function RecipeBox() {
           </fieldset>
 
           <div className="mb-6 mt-8 rounded-2xl bg-muted/70 p-4 text-sm leading-relaxed">
-            <p className="font-medium">Example swap</p>
+            <p className="font-medium">
+              Example swap{" "}
+              <span className="font-normal text-muted-foreground">
+                (illustrative numbers)
+              </span>
+            </p>
             <p className="mt-1 text-muted-foreground">
               Heavy cream to Greek yogurt in chicken alfredo: protein{" "}
               <span className="text-foreground">+14g</span>, fat{" "}

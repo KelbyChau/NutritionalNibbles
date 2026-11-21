@@ -81,6 +81,8 @@
     color: hsl(var(--foreground));
   }
   .surface-paper {
+    --background: 43 70% 95%;
+    --input: 43 25% 82%;
     --card: 43 70% 97%;
     --card-foreground: 230 50% 16%;
     --foreground: 230 50% 16%;
