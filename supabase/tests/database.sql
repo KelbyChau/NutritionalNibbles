@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(23);
+select plan(21);
 
 select has_table('public', 'recipes');
 select has_table('public', 'saved_recipes');
@@ -13,11 +13,11 @@ values
   ('11111111-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'recipe-test-a@example.invalid', '', now(), now()),
   ('22222222-2222-4222-8222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'recipe-test-b@example.invalid', '', now(), now());
 
-insert into public.recipes (id, owner_id, title, prep_minutes, servings, is_public, nutrition_status, nutrition_source)
+insert into public.recipes (id, owner_id, title, prep_minutes, servings, is_public)
 values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '11111111-1111-4111-8111-111111111111', 'Public', 10, 2, true, 'verified', 'Test source'),
-  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '11111111-1111-4111-8111-111111111111', 'Private A', 10, 2, false, 'estimated'),
-  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', '22222222-2222-4222-8222-222222222222', 'Private B', 10, 2, false, 'estimated');
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '11111111-1111-4111-8111-111111111111', 'Public', 10, 2, true),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '11111111-1111-4111-8111-111111111111', 'Private A', 10, 2, false),
+  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', '22222222-2222-4222-8222-222222222222', 'Private B', 10, 2, false);
 
 set local role anon;
 select is((select count(*) from public.recipes), 1::bigint, 'anonymous sees public recipe only');
@@ -29,10 +29,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 select is((select count(*) from public.recipes), 2::bigint, 'A sees public and own private recipe');
 select throws_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings, is_public) values ('11111111-1111-4111-8111-111111111111', 'Published', 1, 1, true)$$, '42501');
-select throws_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings, nutrition_status, nutrition_source) values ('11111111-1111-4111-8111-111111111111', 'Verified', 1, 1, 'verified', 'Invented')$$, '42501');
 select throws_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings) values ('22222222-2222-4222-8222-222222222222', 'Other owner', 1, 1)$$, '42501');
-select lives_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings) values ('11111111-1111-4111-8111-111111111111', 'Own new', 1, 1)$$, 'user can create own estimated recipe');
-select is((select nutrition_status from public.recipes where title = 'Own new'), 'estimated', 'new recipe defaults to estimated');
+select lives_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings) values ('11111111-1111-4111-8111-111111111111', 'Own new', 1, 1)$$, 'user can create own recipe');
 with changed as (update public.recipes set title = 'Changed' where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' returning id)
 select is((select count(*) from changed), 0::bigint, 'cannot update another user recipe');
 with removed as (delete from public.recipes where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' returning id)
