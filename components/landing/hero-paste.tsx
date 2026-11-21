@@ -1,16 +1,10 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { goals } from "@/lib/optimize";
 
 // Second hero version: the recipe box is right on the landing page.
 // The form submits to /optimize as ?recipe=...&goal=..., so the optimize
 // page can read searchParams.recipe and searchParams.goal.
-const goals = [
-  { value: "more-protein", label: "More protein" },
-  { value: "fewer-carbs", label: "Fewer carbs" },
-  { value: "less-fat", label: "Less fat" },
-  { value: "fewer-calories", label: "Fewer calories" },
-];
-
 const examplePlaceholder = `Chicken alfredo (serves 4)
 12 oz fettuccine
 2 chicken breasts

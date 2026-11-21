@@ -1,19 +1,53 @@
-import Link from "next/link";
+import { Suspense } from "react";
+import { SiteNav } from "@/components/landing/site-nav";
+import { SiteFooter } from "@/components/landing/site-footer";
+import { RecipeForm } from "@/components/optimize/recipe-form";
+import { isGoal } from "@/lib/optimize";
 
-// Placeholder so the landing page CTA has somewhere to go.
-// The recipe form and results UI get built here.
-export default function OptimizePage() {
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+// The landing page's recipe box links here as ?recipe=...&goal=..., so the
+// form starts pre-filled. Reading searchParams is request-time data, so it
+// stays inside <Suspense> (cacheComponents is on).
+async function PrefilledRecipeForm({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const { recipe, goal } = await searchParams;
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 px-4">
-      <h1 className="font-display text-5xl tracking-tight">
-        Optimize a recipe
-      </h1>
-      <p className="text-muted-foreground">
-        The recipe form is coming soon.
-      </p>
-      <Link href="/" className="text-sm text-primary underline-offset-4 hover:underline">
-        Back to home
-      </Link>
-    </main>
+    <RecipeForm
+      initialIngredients={typeof recipe === "string" ? recipe : ""}
+      initialGoal={isGoal(goal) ? goal : undefined}
+    />
+  );
+}
+
+export default function OptimizePage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <div className="surface-cobalt">
+        <SiteNav />
+        <section className="mx-auto max-w-6xl px-4 pb-36 pt-8 sm:px-6 md:pb-40 md:pt-12">
+          <h1 className="font-display text-[clamp(2.75rem,6vw,4.5rem)] leading-[0.92] tracking-[-0.02em]">
+            Optimize a recipe
+          </h1>
+          <p className="mt-4 max-w-[46ch] font-display text-2xl leading-snug text-muted-foreground">
+            Add your ingredients and pick a goal. We&apos;ll suggest swaps
+            that get you there.
+          </p>
+        </section>
+      </div>
+      <main className="flex-1 pb-20">
+        <Suspense fallback={<RecipeForm />}>
+          <PrefilledRecipeForm searchParams={searchParams} />
+        </Suspense>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
