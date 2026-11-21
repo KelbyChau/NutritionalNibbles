@@ -19,12 +19,6 @@ const ingredientsPlaceholder = `12 oz fettuccine
 1 cup grated parmesan
 3 cloves garlic`;
 
-const targetFields = [
-  { key: "protein", label: "Protein", dot: "bg-macro-protein" },
-  { key: "carbs", label: "Carbs", dot: "bg-macro-carbs" },
-  { key: "fat", label: "Fat", dot: "bg-macro-fat" },
-] as const;
-
 type Status =
   | { state: "idle" }
   | { state: "sending" }
@@ -33,6 +27,9 @@ type Status =
 
 const fieldClass =
   "h-11 rounded-xl border-border bg-background/60 text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-macro-protein";
+
+const textareaClass =
+  "w-full resize-y rounded-2xl border border-border bg-background/60 p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-macro-protein";
 
 export function RecipeForm({
   initialIngredients = "",
@@ -47,19 +44,12 @@ export function RecipeForm({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
 
-    const targets: Partial<Macros> = {};
-    for (const { key } of targetFields) {
-      const value = form.get(key);
-      if (value) targets[key] = Number(value);
-    }
-
     const body: OptimizeRequest = {
       name: String(form.get("name") ?? "").trim() || undefined,
       servings: Number(form.get("servings")) || 1,
       ingredients: String(form.get("ingredients") ?? "").trim(),
       instructions: String(form.get("instructions") ?? "").trim() || undefined,
       goal: form.get("goal") as Goal,
-      targets: Object.keys(targets).length ? targets : undefined,
     };
 
     setStatus({ state: "sending" });
@@ -139,37 +129,41 @@ export function RecipeForm({
               Ingredients
             </label>
             <p id="ingredients-hint" className="text-sm text-muted-foreground">
-              One per line, with amounts. Paste straight from a recipe site.
+              One per line, with amounts. You can check and fix what we read
+              before anything changes.
             </p>
             <textarea
               id="ingredients"
               name="ingredients"
               required
-              rows={9}
+              rows={8}
               defaultValue={initialIngredients}
               placeholder={ingredientsPlaceholder}
               aria-describedby="ingredients-hint"
-              className="w-full resize-y rounded-2xl border border-border bg-background/60 p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-macro-protein"
+              className={textareaClass}
             />
           </div>
 
-          <details className="group rounded-2xl border border-border p-4 open:pb-5">
-            <summary className="cursor-pointer text-sm font-medium marker:text-muted-foreground">
-              Add steps <span className="font-normal text-muted-foreground">(optional)</span>
-            </summary>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="instructions" className="text-sm font-medium">
+              Steps <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <p id="instructions-hint" className="text-sm text-muted-foreground">
+              Add them and we&apos;ll update the steps to match any swaps.
+            </p>
             <textarea
               id="instructions"
               name="instructions"
-              rows={5}
-              aria-label="Steps"
+              rows={4}
+              aria-describedby="instructions-hint"
               placeholder="Boil the pasta. Sear the chicken. Simmer the cream with garlic…"
-              className="mt-4 w-full resize-y rounded-xl border border-border bg-background/60 p-4 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-macro-protein"
+              className={textareaClass}
             />
-          </details>
+          </div>
         </div>
 
-        {/* Right: the goal */}
-        <div className="flex flex-col gap-8">
+        {/* Right: the goal, kept in view while the recipe column scrolls */}
+        <div className="flex flex-col gap-8 md:sticky md:top-8 md:self-start">
           <fieldset>
             <legend className="font-display text-3xl leading-tight">
               Your goal
@@ -192,42 +186,12 @@ export function RecipeForm({
             </div>
           </fieldset>
 
-          <fieldset>
-            <legend className="text-sm font-medium">
-              Targets per serving{" "}
-              <span className="font-normal text-muted-foreground">(optional)</span>
-            </legend>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              {targetFields.map(({ key, label, dot }) => (
-                <div key={key} className="flex flex-col gap-2">
-                  <label
-                    htmlFor={key}
-                    className="flex items-center gap-1.5 text-sm text-muted-foreground"
-                  >
-                    <span className={`size-2 rounded-full ${dot}`} aria-hidden />
-                    {label}
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id={key}
-                      name={key}
-                      type="number"
-                      min={0}
-                      max={500}
-                      inputMode="numeric"
-                      placeholder="–"
-                      className={`${fieldClass} pr-7`}
-                    />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      g
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </fieldset>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            We aim to keep the dish recognizable and only suggest swaps you can
+            buy and cook. Nutrition figures are estimates, not medical advice.
+          </p>
 
-          <div className="mt-auto flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <Button
               type="submit"
               size="lg"
@@ -253,33 +217,93 @@ export function RecipeForm({
   );
 }
 
+const macroRows: { key: keyof Macros; label: string; unit: string }[] = [
+  { key: "calories", label: "Calories", unit: "" },
+  { key: "protein", label: "Protein", unit: "g" },
+  { key: "carbs", label: "Carbs", unit: "g" },
+  { key: "fat", label: "Fat", unit: "g" },
+];
+
 // Minimal results view so the round trip can be tested end to end.
-// The full results UI can replace this.
+// The full review and comparison UI can replace this.
 function Results({ result }: { result: OptimizeResponse }) {
   return (
-    <section aria-labelledby="results-heading" className="mt-12">
-      <h2 id="results-heading" className="font-display text-4xl tracking-tight">
-        Suggested swaps
-      </h2>
-      <ul className="mt-6 flex flex-col gap-4">
-        {result.swaps.map((swap) => (
-          <li key={`${swap.from}-${swap.to}`} className="border-l-2 border-primary pl-4">
-            <p className="font-display text-2xl leading-snug">
-              <span className="text-muted-foreground line-through decoration-1">
-                {swap.from}
-              </span>{" "}
-              ⟶ {swap.to}
-            </p>
-            {swap.reason && (
+    <section aria-labelledby="results-heading" className="mt-12 flex flex-col gap-8">
+      <div>
+        <h2 id="results-heading" className="font-display text-4xl tracking-tight">
+          {result.goalMet ? "Goal reached" : "Goal not fully reached"}
+        </h2>
+        <p className="mt-2 max-w-[65ch] leading-relaxed text-muted-foreground">
+          {result.summary}
+        </p>
+      </div>
+
+      {result.flags && result.flags.length > 0 && (
+        <div className="rounded-2xl border border-border p-4">
+          <p className="font-medium">Check these</p>
+          <ul className="mt-2 list-disc pl-5 text-muted-foreground">
+            {result.flags.map((flag) => (
+              <li key={flag}>{flag}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <table className="w-full max-w-md text-left tabular-nums">
+        <caption className="mb-2 text-left text-sm text-muted-foreground">
+          Estimated per serving
+        </caption>
+        <thead className="text-sm text-muted-foreground">
+          <tr>
+            <th className="py-1 font-normal"></th>
+            <th className="py-1 font-normal">Original</th>
+            <th className="py-1 font-normal">Revised</th>
+          </tr>
+        </thead>
+        <tbody>
+          {macroRows.map(({ key, label, unit }) => (
+            <tr key={key} className="border-t border-border">
+              <th className="py-2 font-medium">{label}</th>
+              <td className="py-2">{result.before[key]}{unit}</td>
+              <td className="py-2">{result.after[key]}{unit}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div>
+        <h3 className="font-display text-3xl">What changed</h3>
+        <ul className="mt-4 flex flex-col gap-4">
+          {result.swaps.map((swap) => (
+            <li key={`${swap.from}-${swap.to}`} className="border-l-2 border-primary pl-4">
+              <p className="font-display text-2xl leading-snug">
+                <span className="text-muted-foreground line-through decoration-1">
+                  {swap.from}
+                </span>{" "}
+                ⟶ {swap.to}
+              </p>
               <p className="mt-1 text-muted-foreground">{swap.reason}</p>
-            )}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-6 text-sm text-muted-foreground tabular-nums">
-        Per serving: protein {result.before.protein}g → {result.after.protein}g,
-        carbs {result.before.carbs}g → {result.after.carbs}g, fat{" "}
-        {result.before.fat}g → {result.after.fat}g
+              {swap.tradeoff && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Tradeoff: {swap.tradeoff}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {result.instructions && (
+        <div>
+          <h3 className="font-display text-3xl">Updated steps</h3>
+          <p className="mt-3 max-w-[65ch] whitespace-pre-line leading-relaxed">
+            {result.instructions}
+          </p>
+        </div>
+      )}
+
+      <p className="text-sm text-muted-foreground">
+        Nutrition figures are estimates, not medical advice.
       </p>
     </section>
   );
