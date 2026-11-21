@@ -10,7 +10,15 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ["var(--font-display)", "ui-serif", "Georgia", "serif"],
+      },
       colors: {
+        macro: {
+          protein: "hsl(var(--macro-protein))",
+          carbs: "hsl(var(--macro-carbs))",
+          fat: "hsl(var(--macro-fat))",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
