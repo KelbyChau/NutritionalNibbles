@@ -8,7 +8,6 @@ import {
   ArrowRight,
   ChefHat,
   ChevronDown,
-  Clock,
   Dumbbell,
   Flame,
   ListFilter,
@@ -38,7 +37,7 @@ import { cn } from "@/lib/utils";
 export type DashboardRecipe = RecipeListItem;
 
 type Category = "all" | "mine";
-type Sort = "newest" | "quickest" | "protein" | "calories";
+type Sort = "newest" | "protein" | "calories";
 
 const categories: { key: Category; label: string; icon: LucideIcon }[] = [
   { key: "all", label: "Recipes", icon: UtensilsCrossed },
@@ -47,7 +46,6 @@ const categories: { key: Category; label: string; icon: LucideIcon }[] = [
 
 const sorts: { key: Sort; label: string }[] = [
   { key: "newest", label: "Newest" },
-  { key: "quickest", label: "Quickest" },
   { key: "protein", label: "Most protein" },
   { key: "calories", label: "Fewest calories" },
 ];
@@ -55,8 +53,6 @@ const sorts: { key: Sort; label: string }[] = [
 // The landing page's butter-yellow blob color, fixed so it reads the same in
 // both themes (the theme's --accent turns navy in dark mode).
 const BUTTER = "bg-[hsl(45_84%_72%)]";
-
-const totalMinutes = (r: DashboardRecipe) => r.prep_minutes + r.cook_minutes;
 
 // Lists the signed-in (or anonymous) user's own recipes. Recipes are private
 // to their owner (RLS), e.g. the seeded ones belong to demo@example.com.
@@ -137,8 +133,6 @@ export function RecipeDashboard({
       v === null ? Infinity : v * dir;
     return [...list].sort((a, b) => {
       switch (sort) {
-        case "quickest":
-          return totalMinutes(a) - totalMinutes(b);
         case "protein":
           return (
             byNullsLast(a.protein_g_per_serving, -1) -
@@ -378,13 +372,6 @@ function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
       unit: "",
       label: "Ingredients",
     },
-    // Recipes saved from the builder have no cooking time: show "–", not 0.
-    {
-      icon: Clock,
-      value: totalMinutes(recipe) || null,
-      unit: " min",
-      label: "Time",
-    },
   ];
 
   // Plate grows with the recipe: a 3-ingredient dish gets a small plate,
@@ -436,7 +423,7 @@ function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
       </div>
 
       <div className="surface-paper rounded-3xl bg-card p-4 shadow-[0_24px_48px_-32px_hsl(230_60%_15%/0.45)] sm:p-5">
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <dl className="grid grid-cols-3 gap-4">
           {stats.map(({ icon: Icon, value, unit, label }) => (
             <div key={label} className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -508,22 +495,10 @@ function RecipeCard({
           {recipe.title}
         </h3>
         <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-          {/* Saved recipes have no cooking time; skip it rather than "0 minutes". */}
-          {totalMinutes(recipe) > 0 && (
-            <>
-              <Clock className="size-3.5" aria-hidden />
-              <span className="whitespace-nowrap">
-                {totalMinutes(recipe)} minutes
-              </span>
-            </>
-          )}
           {recipe.protein_g_per_serving !== null && (
-            <>
-              {totalMinutes(recipe) > 0 && <span aria-hidden>·</span>}
-              <span className="whitespace-nowrap">
-                {Math.round(recipe.protein_g_per_serving)}g protein
-              </span>
-            </>
+            <span className="whitespace-nowrap">
+              {Math.round(recipe.protein_g_per_serving)}g protein
+            </span>
           )}
         </p>
         {onDelete && (
