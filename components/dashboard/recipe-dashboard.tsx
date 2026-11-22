@@ -120,7 +120,7 @@ export function RecipeDashboard({
     const q = query.trim().toLowerCase();
     const list = recipes.filter((r) => {
       if (q) {
-        const haystack = [r.title, r.description, r.cuisine, ...r.dietary_tags]
+        const haystack = [r.title, r.description]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
