@@ -45,14 +45,25 @@ export async function saveMyRecipe(input: {
   const supabase = createClient();
   await ensureSignedIn(supabase);
 
-  const { data: id, error } = await supabase.rpc("save_foundation_recipe", {
-    recipe_title: input.title.trim(),
-    serving_count: input.servings,
-    items: input.ingredients.map((ing, i) => ({
-      fdc_id: ing.food.fdc_id,
-      amount: Math.round(items[i].grams! * 10) / 10,
-    })),
-  });
+  const save = () =>
+    supabase.rpc("save_foundation_recipe", {
+      recipe_title: input.title.trim(),
+      serving_count: input.servings,
+      items: input.ingredients.map((ing, i) => ({
+        fdc_id: ing.food.fdc_id,
+        amount: Math.round(items[i].grams! * 10) / 10,
+      })),
+    });
+  let { data: id, error } = await save();
+
+  // The browser's login can outlive its account: after a local database reset,
+  // or when the user is deleted. The save then fails on recipes_owner_id_fkey.
+  // Drop that login, sign in as a new guest and try once more.
+  if (error?.code === "23503" && error.message.includes("recipes_owner_id_fkey")) {
+    await supabase.auth.signOut({ scope: "local" });
+    await ensureSignedIn(supabase);
+    ({ data: id, error } = await save());
+  }
   if (error || !id) throw new Error(error?.message || "Couldn't save the recipe.");
 
   if (input.replaceId && input.replaceId !== id) {
