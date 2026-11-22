@@ -29,7 +29,12 @@ import {
 import { parseIngredient } from "@/lib/ingredients";
 import {
   nutrients,
-  promptTargets,
+  promptGoals,
+  type NutrientChange,
+  type SwapBasis,
+  type Direction,
+  type Goal,
+  type Target,
   type VerifiedSwap,
 } from "@/lib/optimizer/nutrient-swaps";
 import { cn } from "@/lib/utils";
@@ -79,12 +84,51 @@ type Suggestion = {
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const formatAmount = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
 
-function describeReduction(swap: VerifiedSwap) {
-  return swap.reductions.map(({ target, perServing }) => {
-    const { label, unit } = nutrients[target];
-    const amount = formatAmount.format(unit === "mg" ? Math.round(perServing) : perServing);
-    return `${amount} ${unit} less ${label}`;
-  }).join(" and ") + " per serving";
+function formatChange({ target, perServing }: NutrientChange) {
+  const { label, unit } = nutrients[target];
+  const size = Math.abs(perServing);
+  const value = unit === "g" ? formatAmount.format(size) : String(Math.round(size));
+  const sign = perServing > 0 ? "+" : "−";
+  return target === "calories" ? `${sign}${value} kcal` : `${sign}${value} ${unit} ${label}`;
+}
+
+// "+5.11 g protein, −163 kcal per serving (also −20.96 g fat)". A requested
+// nutrient that barely moved is called out rather than left out.
+function describeChanges(swap: VerifiedSwap) {
+  const requested = swap.changes.map((c) =>
+    Math.abs(c.perServing) < nutrients[c.target].minChange
+      ? `about the same ${nutrients[c.target].label}`
+      : formatChange(c),
+  );
+  const also = swap.sideEffects.map(formatChange);
+  return `${requested.join(", ")} per serving` + (also.length ? ` (also ${also.join(", ")})` : "");
+}
+
+const basisNote: Record<SwapBasis, string> = {
+  same_weight: "",
+  same_volume: ", about the same volume",
+  prepared_equivalent: ", the ready-to-eat equivalent",
+};
+
+// Shown under each offered swap, so the amount is never a surprise.
+const basisExplanation: Record<SwapBasis, string> = {
+  same_weight: "Same weight as the original.",
+  same_volume: "About the same volume as the original, so the weight differs.",
+  prepared_equivalent: "The ready-to-eat equivalent of the original amount (one is dry, the other isn't).",
+};
+
+const isGoalKey = (t: Target): t is GoalKey => goals.some((g) => g.key === t);
+
+// The server gives up after 45 s; stop waiting a little after that.
+const SWAP_REQUEST_TIMEOUT_MS = 50_000;
+const TOO_SLOW = "The AI took too long to answer. Try again in a moment.";
+
+// The built-in (rule-based) goals each go one way, so they only stand in for
+// the AI when the user asked for that same direction.
+const builtInDirection: Record<GoalKey, Direction> = { protein: "higher", calories: "lower", carbs: "lower", fat: "lower" };
+function builtInGoal(asked: Goal[]): GoalKey | undefined {
+  const match = asked.find(({ target, direction }) => isGoalKey(target) && builtInDirection[target] === direction);
+  return match && isGoalKey(match.target) ? match.target : undefined;
 }
 
 // Next keeps visited pages alive (cacheComponents + <Activity>), so without
@@ -156,7 +200,7 @@ function OptimizeChatPage() {
           `Here's ${draft.title ? `your ${draft.title}` : "your recipe"}: ${draft.current.length} ingredients, ` +
           `${n.kcal === null ? "calories unavailable" : `about ${Math.round(n.kcal)} kcal`}` +
           `${n.protein === null ? "" : ` and ${Math.round(n.protein)} g protein`} per serving (estimated).\n\n` +
-          "What do you want to optimize? Pick a goal or ask for a change, like “make this lower in sodium” or “swap heavy cream for Greek yogurt”.",
+          "What do you want to optimize? Pick a goal or ask for a change, like “more protein and fewer calories”, “make this lower in sodium” or “swap heavy cream for Greek yogurt”.",
         actions: goals.map((g) => ({ type: "goal", goal: g.key })),
       },
     ]);
@@ -180,7 +224,7 @@ function OptimizeChatPage() {
 
   useEffect(() => {
     logEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages]);
+  }, [messages, checkingSwaps]);
 
   useEffect(() => () => pendingSwap.current?.abort(), []);
 
@@ -214,9 +258,12 @@ function OptimizeChatPage() {
 
   function prepareNutrientSwap({ swap, from }: NutrientSwapAction) {
     const replacement = makeIngredient(swap.replacement, { amount: String(swap.grams), unit: "g" }, from.id);
+    const fromAmount = [from.amount, from.unit].filter(Boolean).join(" ");
     return {
       ingredients: current.map((i) => i.id === from.id ? replacement : i),
-      message: `Swapped ${from.name} for ${replacement.name} (${formatAmount.format(swap.grams)} g). Estimated ${describeReduction(swap)}.`,
+      message:
+        `Swapped ${fromAmount} ${lower(from.name)} for ${formatAmount.format(swap.grams)} g ` +
+        `${lower(replacement.name)}${basisNote[swap.basis]}. Estimated ${describeChanges(swap)}.`,
     };
   }
 
@@ -235,26 +282,35 @@ function OptimizeChatPage() {
     );
   }
 
-  function suggestFor(g: GoalKey, user: string, list = current) {
+  // echoUser: false when the user's message is already in the chat (the AI
+  // path posts it first and falls back here). note is shown before the goal.
+  function suggestFor(
+    g: GoalKey,
+    user: string,
+    list = current,
+    { echoUser = true, note = "" } = {},
+  ) {
     const info = goals.find((x) => x.key === g)!;
     const changes = suggestChanges(g, list, servings, foods);
+    const userMessage: Omit<Message, "id">[] = echoUser ? [{ role: "user", text: user }] : [];
+    const intro = note ? `${note}\n\n` : "";
     if (catalogStatus) {
       return push(
-        { role: "user", text: user },
+        ...userMessage,
         {
           role: "assistant",
-          text: `Goal set: ${info.phrase}. ${catalogStatus} Try again in a moment.`,
+          text: `${intro}Goal set: ${info.phrase}. ${catalogStatus} Try again in a moment.`,
         },
       );
     }
     const perNow = calculateNutrition(list, servings).perServing;
     push(
-      { role: "user", text: user },
+      ...userMessage,
       changes.length
         ? {
             role: "assistant",
             text:
-              `Goal: ${info.phrase}. Here are the changes that help most:\n\n` +
+              `${intro}Goal: ${info.phrase}. Here are the changes that help most:\n\n` +
               changes
                 .map(
                   (c, i) =>
@@ -267,7 +323,7 @@ function OptimizeChatPage() {
         : {
             role: "assistant",
             text:
-              `Goal: ${info.phrase}. I don't have a swap that improves this for your current ingredients. ` +
+              `${intro}Goal: ${info.phrase}. I don't have a swap that improves this for your current ingredients. ` +
               "Tell me a change you'd like to try, e.g. “swap X for Y”, “use 25% less X” or “remove X”, and I'll show the difference.",
           },
     );
@@ -294,7 +350,7 @@ function OptimizeChatPage() {
       const response = await fetch("/api/optimize/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(SWAP_REQUEST_TIMEOUT_MS)]),
         body: JSON.stringify({
           prompt, title, servings,
           ingredients: current.map(({ id, food, amount, unit }) => ({
@@ -305,6 +361,16 @@ function OptimizeChatPage() {
       const result: { swaps?: VerifiedSwap[]; message?: string; error?: string } = await response.json();
       if (controller.signal.aborted) return;
       if (!response.ok) {
+        // Signed out (401), AI failing (502), no AI key (503) or too slow
+        // (504): macro goals still get the built-in swaps.
+        const goalTarget = builtInGoal(promptGoals(prompt));
+        if (goalTarget && [401, 502, 503, 504].includes(response.status)) {
+          suggestFor(goalTarget, prompt, current, {
+            echoUser: false,
+            note: `${result.error ?? "AI suggestions aren’t available right now."} Here are the built-in swaps instead.`,
+          });
+          return;
+        }
         push({ role: "assistant", text: result.error ?? "I couldn’t check swaps right now. Try again in a moment." });
         return;
       }
@@ -315,32 +381,54 @@ function OptimizeChatPage() {
       const actions: NutrientSwapAction[] = (result.swaps ?? []).flatMap((swap) => {
         const from = current.find((item) => item.id === swap.ingredientId);
         if (!from) return [];
-        const label = `${from.name} → ${foodLabel(swap.replacement.description)}`;
+        const label = `${from.name} → ${foodLabel(swap.replacement.description)} (${formatAmount.format(swap.grams)} g)`;
         return [{ type: "nutrientSwap", swap, from, servings, label }];
       });
-      const [best, ...rest] = actions;
-      if (!best) {
+      const asked = promptGoals(prompt);
+      const goalTarget = builtInGoal(asked);
+      if (!actions.length && goalTarget) {
+        // No verified AI swap: the curated swaps may still have one for this goal.
+        suggestFor(goalTarget, prompt, current, {
+          echoUser: false,
+          note: result.message ?? "The AI didn’t find a verified swap for this recipe, so here are the built-in ones.",
+        });
+        return;
+      }
+      if (!actions.length) {
         push({
           role: "assistant",
           text: result.message ?? "I couldn’t verify a suitable swap for this recipe using the USDA catalog.",
         });
         return;
       }
-      const applied = prepareNutrientSwap(best);
-      recordIngredientChange(applied.ingredients);
-      const alternatives = rest.filter((action) => action.from.id !== best.from.id);
+      // Offer the swaps; nothing changes until the user taps one.
+      const goalText = asked
+        .map(({ target, direction }) => `${direction === "higher" ? "higher" : "lower"} ${nutrients[target].label}`)
+        .join(", ");
       push({
         role: "assistant",
-        text: `${applied.message} Use Undo to restore the previous recipe.` +
-          (alternatives.length
-            ? "\n\nOther verified swaps you can apply:\n" +
-              alternatives.map(({ label, swap }) => `${label}: ${describeReduction(swap)}.`).join("\n")
-            : ""),
-        actions: alternatives,
+        text:
+          `Goal: ${goalText}. Pick the swap that suits your dish best; each is checked against USDA data:\n\n` +
+          actions
+            .map(({ label, swap }, i) =>
+              `${i + 1}. ${label}: ${describeChanges(swap)}.\n   ` +
+              [swap.note, basisExplanation[swap.basis]].filter(Boolean).join(" "))
+            .join("\n") +
+          "\n\nTap one to apply it, or tell me something else to change.",
+        actions,
       });
-    } catch {
+    } catch (error) {
       if (!controller.signal.aborted) {
-        push({ role: "assistant", text: "I couldn’t check swaps right now. Try again in a moment." });
+        const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+        const goalTarget = builtInGoal(promptGoals(prompt));
+        if (goalTarget) {
+          suggestFor(goalTarget, prompt, current, {
+            echoUser: false,
+            note: `${timedOut ? TOO_SLOW : "I couldn’t check AI swaps right now."} Here are the built-in swaps instead.`,
+          });
+        } else {
+          push({ role: "assistant", text: timedOut ? TOO_SLOW : "I couldn’t check swaps right now. Try again in a moment." });
+        }
       }
     } finally {
       pendingSwap.current = null;
@@ -530,7 +618,12 @@ function OptimizeChatPage() {
       );
     }
 
-    if (promptTargets(t).length) return void suggestNutrientSwaps(t);
+    const asked = promptGoals(t);
+    if (asked.length) {
+      const goalTarget = builtInGoal(asked);
+      if (goalTarget) setGoal(goalTarget);
+      return void suggestNutrientSwaps(t);
+    }
 
     const mentioned = goals.find((g) => g.words.test(t));
     if (mentioned) {
@@ -552,6 +645,8 @@ function OptimizeChatPage() {
         text:
           "I can make these changes right now:\n" +
           "• a goal: “make it higher protein”, “lower calorie”, “lower carb”, “lower fat”\n" +
+          "• any nutrient, either way: “more carbs”, “less protein”, “more calories”\n" +
+          "• several goals at once: “more protein and fewer calories”\n" +
           "• “swap heavy cream for Greek yogurt” or “swap rice for something lighter”\n" +
           "• “use half the butter”, “use 25% less pasta”, “change chicken to 300 g”\n" +
           "• “remove garlic”, “add 100 g spinach”, “4 servings”, “undo”, “reset”\n" +
@@ -670,6 +765,30 @@ function OptimizeChatPage() {
                   </div>
                 </li>
               ))}
+              {checkingSwaps && (
+                <li className="flex justify-start gap-3">
+                  <span
+                    className={cn(
+                      "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[hsl(229_73%_48%)]",
+                      BUTTER,
+                    )}
+                  >
+                    <WandSparkles className="size-4" />
+                  </span>
+                  <div className="surface-paper flex max-w-[85%] items-center gap-3 rounded-3xl rounded-bl-md border border-border bg-card px-4 py-3 text-sm leading-relaxed">
+                    <span className="flex gap-1" aria-hidden>
+                      {[0, 150, 300].map((delay) => (
+                        <span
+                          key={delay}
+                          className="size-1.5 animate-bounce rounded-full bg-primary"
+                          style={{ animationDelay: `${delay}ms` }}
+                        />
+                      ))}
+                    </span>
+                    <span>Finding swaps that fit your goal and checking them against USDA data. This can take up to half a minute.</span>
+                  </div>
+                </li>
+              )}
             </ol>
             <div ref={logEnd} />
           </div>
