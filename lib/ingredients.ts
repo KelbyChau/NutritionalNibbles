@@ -20,6 +20,15 @@ const ingredientArtwork = [
   ["tomato", /\btomato(?:es)?$/i],
   ["broccoli", /\bbroccoli(?: florets?)?$/i],
   ["onion", /\bonions?$/i],
+  ["carrot", /\bcarrots?$/i],
+  ["garlic", /\bgarlic(?: (?:cloves?|bulbs?))?$/i],
+  ["lemon", /\blemons?$/i],
+  ["mushrooms", /\bmushrooms?$/i],
+  ["bell-pepper", /\b(?:bell|sweet) peppers?$/i],
+  ["avocado", /\bavocados?$/i],
+  ["spinach", /\bspinach(?: leaves)?$/i],
+  ["tofu", /\btofu$/i],
+  ["shrimp", /\bshrimp(?:s)?$/i],
 ] as const;
 
 export function ingredientImage(name: string) {
