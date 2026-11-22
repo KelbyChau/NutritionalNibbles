@@ -469,7 +469,10 @@ export function NutritionPanel({
   showZeros?: boolean;
 }) {
   const [scope, setScope] = useState<"serving" | "recipe">("serving");
-  const n = scope === "serving" ? nutrition.perServing : nutrition.total;
+  // Subtotals over the ingredients that have data, marked † when some don't.
+  const n = scope === "serving" ? nutrition.known.perServing : nutrition.known.total;
+  const partial = (key: keyof Nutrients) =>
+    n[key] === null || nutrition.known.counted[key] < nutrition.counted;
   const calories = scope === "serving" ? nutrition.knownCalories.perServing : nutrition.knownCalories.total;
   const calorieCount = nutrition.knownCalories.counted;
   const partialCalories = calorieCount > 0 && calorieCount < nutrition.items.length;
@@ -616,7 +619,7 @@ export function NutritionPanel({
                       </span>{" "}
                       <span className="tabular-nums">
                         {fmtNutrient(value ?? 0, row.unit)}
-                        {value === null && <sup>†</sup>}
+                        {partial(row.key) && <sup>†</sup>}
                       </span>
                     </dt>
                     <dd className="font-semibold tabular-nums">
@@ -680,8 +683,9 @@ export function NutritionPanel({
         )}
 
         <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
-          * % Daily Value is based on a 2,000-calorie diet. † Zero is a
-          placeholder where nutrition data is unavailable.
+          * % Daily Value is based on a 2,000-calorie diet. † Some ingredients
+          have no USDA data for this nutrient, so it counts only the ones that
+          do (0 when none do).
         </p>
       </div>
     </section>

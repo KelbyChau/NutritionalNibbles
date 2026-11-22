@@ -312,12 +312,15 @@ function RecipeBuilderPage() {
               />
               <Stat
                 icon={Dumbbell}
-                label="Protein / serving"
+                label={nutrition.known.counted.protein > 0 &&
+                  nutrition.known.counted.protein < nutrition.items.length
+                  ? "Known protein / serving"
+                  : "Protein / serving"}
                 value={
                   !ingredients.length
                     ? "0 g"
                     : nutrition.counted
-                      ? fmtNutrient(nutrition.perServing.protein, "g")
+                      ? fmtNutrient(nutrition.known.perServing.protein, "g")
                       : "–"
                 }
               />
