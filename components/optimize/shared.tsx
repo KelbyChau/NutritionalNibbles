@@ -4,6 +4,7 @@
 // (/optimize/chat): ingredient type, goals, art, combobox, nutrition panel,
 // the USDA catalog loader, and the draft handed between the two pages.
 
+import Image from "next/image";
 import { useEffect, useId, useState } from "react";
 import {
   ArrowUp,
@@ -15,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  ingredientImage,
   lookupIngredient,
   parseIngredient,
   type IngredientInfo,
@@ -212,26 +214,16 @@ export function IngredientArt({
   sizeRem: number;
   className?: string;
 }) {
-  if (ingredient.image) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- local cut-out PNGs, sized by the stage
-      <img
-        src={ingredient.image}
-        alt={ingredient.name}
-        style={{ width: `${sizeRem}rem`, height: `${sizeRem}rem` }}
-        className={cn("object-contain", className)}
-      />
-    );
-  }
   return (
-    <span
-      role="img"
-      aria-label={ingredient.name}
-      style={{ fontSize: `${sizeRem * 0.8}rem`, lineHeight: 1 }}
-      className={cn("block select-none", className)}
-    >
-      {ingredient.emoji}
-    </span>
+    <Image
+      src={ingredient.image ?? ingredientImage(ingredient.name)}
+      alt={ingredient.name}
+      width={224}
+      height={224}
+      unoptimized
+      style={{ width: `${sizeRem}rem`, height: `${sizeRem}rem` }}
+      className={cn("object-contain", className)}
+    />
   );
 }
 

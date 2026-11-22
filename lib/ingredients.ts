@@ -1,11 +1,32 @@
 // Ingredient helpers for the recipe builder (/optimize).
 //
-// To show a real cut-out PNG for an ingredient, drop it in
-// public/ingredients/ (transparent background works best) and set `image`
-// below, e.g. { name: "Beef steak", emoji: "🥩", image: "/ingredients/beef-steak.png" }.
-// Ingredients without an image fall back to their emoji.
-
 export type IngredientInfo = { name: string; emoji: string; image?: string };
+
+// Match the display name before its USDA preparation notes. Use word
+// boundaries so names like eggplant and butternut do not pick up unrelated art.
+const ingredientArtwork = [
+  ["chicken", /^chicken(?: (?:breasts?|thighs?|drumsticks?|wings?))?$|\bchicken (?:breasts?|thighs?|drumsticks?|wings?)$/i],
+  ["beef", /^beef$|\b(?:ground beef|beef steaks?|steaks?)$/i],
+  ["salmon", /\bsalmon(?: fillets?)?$/i],
+  ["eggs", /\b(?:eggs?|egg whites?|egg yolks?)$/i],
+  ["cheese", /\b(?:cheese|parmesan|mozzarella|cheddar|feta|gouda|ricotta)$/i],
+  ["dairy", /\b(?:milk|yogurt|cream)$/i],
+  ["butter", /^(?:(?:un)?salted )?butter$/i],
+  ["olive-oil", /\bolive oil$/i],
+  ["rice", /^(?!.*\bcauliflower\b).*\brice$/i],
+  ["pasta", /\b(?:pasta|spaghetti|fettuccine|linguine|penne|macaroni|noodles?)$/i],
+  ["bread", /\bbread$/i],
+  ["potatoes", /\bpotato(?:es)?$/i],
+  ["tomato", /\btomato(?:es)?$/i],
+  ["broccoli", /\bbroccoli(?: florets?)?$/i],
+  ["onion", /\bonions?$/i],
+] as const;
+
+export function ingredientImage(name: string) {
+  const label = name.split("(")[0].trim();
+  const match = ingredientArtwork.find(([, pattern]) => pattern.test(label));
+  return `/ingredients/${match?.[0] ?? "bowl"}.webp`;
+}
 
 export const commonIngredients: IngredientInfo[] = [
   { name: "Chicken breast", emoji: "🍗" },
