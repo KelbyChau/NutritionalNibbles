@@ -7,7 +7,6 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   Dumbbell,
   Flame,
-  Import,
   LayoutGrid,
   Minus,
   Plus,
@@ -43,6 +42,7 @@ import {
   useUsdaFoods,
   type Ingredient,
 } from "./shared";
+import { RecipeImport, type ImportedRecipe } from "./recipe-import";
 
 // Where ingredient art sits on the stage, in % of the stage box. The first
 // ingredient takes the big center spot; the rest scatter around it.
@@ -196,6 +196,22 @@ function RecipeBuilderPage() {
     ]);
   }
 
+  // From the Import dialog, after the user reviewed it: replace the recipe.
+  function importRecipe(recipe: ImportedRecipe) {
+    let id = 1;
+    const list = recipe.ingredients.map((i) => ({
+      ...makeIngredient(i.food, i, id++),
+      // Keep exactly what was reviewed (makeIngredient would turn a blank amount into 100 g).
+      amount: i.amount,
+      unit: i.unit,
+    }));
+    nextId.current = id;
+    if (recipe.title) setTitle(recipe.title);
+    setServings(recipe.servings);
+    setIngredients(list);
+    setRecipeStatus("");
+  }
+
   function removeIngredient(id: number) {
     setIngredients((list) => list.filter((i) => i.id !== id));
   }
@@ -262,15 +278,12 @@ function RecipeBuilderPage() {
           <LayoutGrid className="size-4" aria-hidden />
           <span className="hidden sm:inline">Saved recipes</span>
         </Link>
-        {/* UI only for now: no import behavior yet. */}
-        <button
-          type="button"
-          aria-label="Import a recipe"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
-        >
-          <Import className="size-4" aria-hidden />
-          <span className="hidden sm:inline">Import</span>
-        </button>
+        <RecipeImport
+          foods={foods}
+          catalogStatus={catalogStatus}
+          replacing={ingredients.length}
+          onImport={importRecipe}
+        />
         <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
           <ThemeSwitcher />
         </div>

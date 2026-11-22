@@ -107,6 +107,8 @@ const foods: Record<string, Food> = {
     note: "salted",
   },
   "olive oil": { per100: [884, 0, 0, 100, 13.8, 0, 0, 2, 0], cup: 216 },
+  // Any other cooking oil (canola, sunflower, …): same cup weight, so tbsp/tsp convert.
+  oil: { per100: [884, 0, 0, 100, 7.4, 0, 0, 0, 0], cup: 218, note: "vegetable oil" },
   "cheddar cheese": {
     per100: [403, 24.9, 1.3, 33.1, 21.1, 0, 0.5, 621, 105],
     cup: 113,
@@ -192,6 +194,12 @@ const foods: Record<string, Food> = {
     per100: [40, 1.1, 9.3, 0.1, 0, 1.7, 4.2, 4, 0],
     piece: 110,
     cup: 160,
+  },
+  // findFood tries longer names first, so a scallion isn’t weighed as a whole onion.
+  "green onion": {
+    per100: [32, 1.8, 7.3, 0.2, 0, 2.6, 2.3, 16, 0],
+    piece: 15,
+    cup: 100,
   },
   garlic: {
     per100: [149, 6.4, 33.1, 0.5, 0.1, 2.1, 1.0, 17, 0],
@@ -349,6 +357,17 @@ export function findFood(name: string): { key: string; food: Food } | null {
   return null;
 }
 
+// USDA names put the food type first ("Oil, olive, extra virgin", "Cream,
+// heavy", "Peppers, bell, red"). Try them in recipe word order too, so cup
+// and piece weights for olive oil, heavy cream, bell pepper etc. are found.
+function findUsdaFood(description: string) {
+  const [first = "", second = ""] = description.split(/,\s*/);
+  return (
+    findFood(description) ??
+    (second ? findFood(`${second} ${first}`) ?? findFood(`${first} ${second}`) : null)
+  );
+}
+
 export function parseAmount(amount: string): number | null {
   const a = amount.trim();
   if (!a) return null;
@@ -387,7 +406,7 @@ export function calculateNutrition(
   servings: number,
 ): RecipeNutrition {
   const items: IngredientNutrition[] = ingredients.map((ing) => {
-    const match = findFood(ing.food?.description ?? ing.name);
+    const match = ing.food ? findUsdaFood(ing.food.description) : findFood(ing.name);
     if (!match && !ing.food)
       return {
         name: ing.name,
