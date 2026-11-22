@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -91,9 +92,10 @@ export function RecipeDashboard({
   const [diet, setDiet] = useState(ANY);
   const [sort, setSort] = useState<Sort>("newest");
   const [saved, setSaved] = useState(() => new Set(savedIds));
-  const [selectedId, setSelectedId] = useState<string | null>(
-    recipes[0]?.id ?? null,
-  );
+  // Nothing is selected until a card is clicked; the big view falls back to
+  // the first recipe but no card is outlined.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const router = useRouter();
 
   const cuisines = useMemo(
     () => unique(recipes.map((r) => r.cuisine)),
@@ -359,12 +361,12 @@ export function RecipeDashboard({
               <li key={recipe.id}>
                 <RecipeCard
                   recipe={recipe}
-                  active={recipe.id === featured?.id}
+                  active={recipe.id === selectedId}
                   saved={saved.has(recipe.id)}
                   onSelect={() => {
                     setSelectedId(recipe.id);
-                    if (window.innerWidth < 1024)
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    // Open it in the recipe builder with its ingredients.
+                    router.push(`/optimize?recipe=${recipe.id}`);
                   }}
                   onToggleSave={
                     canSave ? () => toggleSave(recipe.id) : undefined
@@ -564,15 +566,25 @@ function RecipeCard({
   onToggleSave?: () => void;
 }) {
   return (
-    // The whole card selects the recipe; "See recipe" stays as the
-    // keyboard-focusable control.
+    // The whole card is the control: click, Enter or Space selects it.
     <article
+      role="button"
+      tabIndex={0}
+      aria-pressed={active}
+      aria-label={`Open ${recipe.title} in the recipe builder`}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
-        "relative flex h-48 cursor-pointer overflow-hidden rounded-3xl border bg-card transition-colors",
+        "relative flex h-48 cursor-pointer overflow-hidden rounded-3xl border bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         active
           ? "border-primary ring-1 ring-primary"
-          : "border-border hover:border-foreground/30",
+          : "border-border hover:border-primary hover:ring-1 hover:ring-primary",
       )}
     >
       <div className="relative z-10 flex min-w-0 flex-1 flex-col p-5">
@@ -581,25 +593,18 @@ function RecipeCard({
         </h3>
         <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
           <Clock className="size-3.5" />
-          {totalMinutes(recipe)} minutes
+          <span className="whitespace-nowrap">
+            {totalMinutes(recipe)} minutes
+          </span>
           {recipe.protein_g_per_serving !== null && (
             <>
               <span aria-hidden>·</span>
-              {Math.round(recipe.protein_g_per_serving)}g protein
+              <span className="whitespace-nowrap">
+                {Math.round(recipe.protein_g_per_serving)}g protein
+              </span>
             </>
           )}
         </p>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-          }}
-          className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-xs font-medium transition-colors hover:bg-primary hover:text-primary-foreground"
-        >
-          See recipe
-          <ArrowRight className="size-3.5" />
-        </button>
       </div>
 
       <div className="relative w-[42%] shrink-0">
