@@ -60,6 +60,7 @@ type Action =
   | { type: "goal"; goal: GoalKey }
   | { type: "change"; change: Change }
   | { type: "nutrientSwap"; swap: VerifiedSwap; from: Ingredient; servings: number; label: string };
+type NutrientSwapAction = Extract<Action, { type: "nutrientSwap" }>;
 
 type Message = {
   id: number;
@@ -107,7 +108,8 @@ function OptimizeChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [checkingSwaps, setCheckingSwaps] = useState(false);
-  const checkingSwapsRef = useRef(false);
+  const pendingSwap = useRef<AbortController | null>(null);
+  const recipeRevision = useRef(0);
   const nextId = useRef(1);
   const logEnd = useRef<HTMLDivElement>(null);
 
@@ -180,6 +182,8 @@ function OptimizeChatPage() {
     logEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
+  useEffect(() => () => pendingSwap.current?.abort(), []);
+
   function push(...msgs: Omit<Message, "id">[]) {
     setMessages((m) => [
       ...m,
@@ -195,12 +199,25 @@ function OptimizeChatPage() {
   ) {
     const prev = calculateNutrition(current, servings).perServing;
     const after = calculateNutrition(next, nextServings).perServing;
-    setHistory((h) => [...h, current]);
-    setCurrent(next);
+    recordIngredientChange(next);
     push(
       { role: "user", text: user },
       { role: "assistant", text: `${what}\n${describeDelta(prev, after)}.` },
     );
+  }
+
+  function recordIngredientChange(next: Ingredient[]) {
+    recipeRevision.current++;
+    setHistory((h) => [...h, current]);
+    setCurrent(next);
+  }
+
+  function prepareNutrientSwap({ swap, from }: NutrientSwapAction) {
+    const replacement = makeIngredient(swap.replacement, { amount: String(swap.grams), unit: "g" }, from.id);
+    return {
+      ingredients: current.map((i) => i.id === from.id ? replacement : i),
+      message: `Swapped ${from.name} for ${replacement.name} (${formatAmount.format(swap.grams)} g). Estimated ${describeReduction(swap)}.`,
+    };
   }
 
   function findIngredient(term: string) {
@@ -267,14 +284,17 @@ function OptimizeChatPage() {
   }
 
   async function suggestNutrientSwaps(prompt: string) {
-    if (checkingSwapsRef.current) return;
-    checkingSwapsRef.current = true;
+    if (pendingSwap.current) return;
+    const controller = new AbortController();
+    const revision = recipeRevision.current;
+    pendingSwap.current = controller;
     setCheckingSwaps(true);
     push({ role: "user", text: prompt });
     try {
       const response = await fetch("/api/optimize/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           prompt, title, servings,
           ingredients: current.map(({ id, food, amount, unit }) => ({
@@ -283,28 +303,47 @@ function OptimizeChatPage() {
         }),
       });
       const result: { swaps?: VerifiedSwap[]; message?: string; error?: string } = await response.json();
+      if (controller.signal.aborted) return;
       if (!response.ok) {
         push({ role: "assistant", text: result.error ?? "I couldn’t check swaps right now. Try again in a moment." });
         return;
       }
-      const actions: Extract<Action, { type: "nutrientSwap" }>[] = (result.swaps ?? []).flatMap((swap) => {
+      if (revision !== recipeRevision.current) {
+        push({ role: "assistant", text: "Your recipe changed while I was checking swaps. Ask again to optimize the current version." });
+        return;
+      }
+      const actions: NutrientSwapAction[] = (result.swaps ?? []).flatMap((swap) => {
         const from = current.find((item) => item.id === swap.ingredientId);
         if (!from) return [];
         const label = `${from.name} → ${foodLabel(swap.replacement.description)}`;
         return [{ type: "nutrientSwap", swap, from, servings, label }];
       });
+      const [best, ...rest] = actions;
+      if (!best) {
+        push({
+          role: "assistant",
+          text: result.message ?? "I couldn’t verify a suitable swap for this recipe using the USDA catalog.",
+        });
+        return;
+      }
+      const applied = prepareNutrientSwap(best);
+      recordIngredientChange(applied.ingredients);
+      const alternatives = rest.filter((action) => action.from.id !== best.from.id);
       push({
         role: "assistant",
-        text: actions.length
-          ? "Here are USDA swaps I checked. Each estimate is for one swap at the same weight.\n\n" +
-            actions.map(({ label, swap }) => `${label} (${formatAmount.format(swap.grams)} g): ${describeReduction(swap)}.`).join("\n\n")
-          : result.message ?? "I couldn’t verify a suitable swap for this recipe using the USDA catalog.",
-        actions,
+        text: `${applied.message} Use Undo to restore the previous recipe.` +
+          (alternatives.length
+            ? "\n\nOther verified swaps you can apply:\n" +
+              alternatives.map(({ label, swap }) => `${label}: ${describeReduction(swap)}.`).join("\n")
+            : ""),
+        actions: alternatives,
       });
     } catch {
-      push({ role: "assistant", text: "I couldn’t check swaps right now. Try again in a moment." });
+      if (!controller.signal.aborted) {
+        push({ role: "assistant", text: "I couldn’t check swaps right now. Try again in a moment." });
+      }
     } finally {
-      checkingSwapsRef.current = false;
+      pendingSwap.current = null;
       setCheckingSwaps(false);
     }
   }
@@ -322,6 +361,7 @@ function OptimizeChatPage() {
           { role: "assistant", text: "Nothing to undo." },
         );
       setHistory((h) => h.slice(0, -1));
+      recipeRevision.current++;
       setCurrent(prev);
       return push(
         { role: "user", text: t },
@@ -341,6 +381,7 @@ function OptimizeChatPage() {
       const s = Math.min(24, Math.max(1, Number(m[1] ?? m[2])));
       const prev = calculateNutrition(current, servings).perServing;
       const after = calculateNutrition(current, s).perServing;
+      if (s !== servings) recipeRevision.current++;
       setServings(s);
       return push(
         { role: "user", text: t },
@@ -536,12 +577,8 @@ function OptimizeChatPage() {
         push({ role: "assistant", text: "The ingredient or serving count changed. Ask for a new suggestion to verify the reduction." });
         return;
       }
-      const replacement = makeIngredient(a.swap.replacement, { amount: String(a.swap.grams), unit: "g" }, item.id);
-      commit(
-        current.map((i) => i.id === item.id ? replacement : i),
-        `Apply: ${a.label}`,
-        `Swapped ${item.name} for ${replacement.name}. Estimated ${describeReduction(a.swap)}.`,
-      );
+      const applied = prepareNutrientSwap(a);
+      commit(applied.ingredients, `Apply: ${a.label}`, applied.message);
     }
   }
 
