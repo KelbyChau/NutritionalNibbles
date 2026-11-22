@@ -6,6 +6,7 @@ import { hasEnvVars } from "@/lib/utils";
 
 const links = [
   { href: "#how-it-works", label: "How it works" },
+  { href: "/dashboard", label: "Recipes" },
   { href: "/optimize", label: "Optimize a recipe" },
 ];
 

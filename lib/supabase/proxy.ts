@@ -49,6 +49,8 @@ export async function updateSession(request: NextRequest) {
 
   if (
     request.nextUrl.pathname !== "/" &&
+    !request.nextUrl.pathname.startsWith("/optimize") &&
+    !request.nextUrl.pathname.startsWith("/dashboard") &&
     !user &&
     // API routes check sign-in themselves and return JSON 401s, so API
     // callers (and signed-out visitors listing public recipes) aren't
