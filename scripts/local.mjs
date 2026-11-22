@@ -1,7 +1,9 @@
 // Local testing: runs the app against a local Supabase stack in Docker,
 // seeded with demo recipes from supabase/seed.sql. See Docs/LOCAL_TESTING.md.
 //
-//   npm run local          start the local database (if needed), then the app
+//   npm run local          start the local database (if needed), reset it to
+//                          the migrations and demo data, then start the app
+//   npm run local -- --keep  the same, but keep the data from last time
 //   npm run local:reset    wipe the local database, re-run migrations and seed
 //   npm run local:stop     stop the local database (its data is kept)
 //   npm run test:db        run the database tests in supabase/tests
@@ -15,7 +17,10 @@ const onWindows = process.platform === "win32"; // npx is npx.cmd there
 
 const [first, ...rest] = process.argv.slice(2);
 const command = !first || first.startsWith("-") ? "start" : first;
-const nextArgs = command === "start" ? process.argv.slice(2) : rest;
+const args = command === "start" ? process.argv.slice(2) : rest;
+// --keep is ours; every other argument goes to `next dev`.
+const keepData = args.includes("--keep");
+const nextArgs = args.filter((arg) => arg !== "--keep");
 
 function supabase(args, options = {}) {
   return spawnSync("npx", [...SUPABASE, ...args], {
@@ -66,7 +71,14 @@ function ensureStarted() {
 }
 
 function startApp() {
-  const status = ensureStarted();
+  let status = ensureStarted();
+  if (!keepData) {
+    // Every run starts from the same data: all migrations, then the demo data
+    // in supabase/seed.sql. Recipes, sign-ups and guests from last time go.
+    console.log("Resetting the local database (pass --keep to keep last run's data)…");
+    exitOnFailure(supabase(["db", "reset"]));
+    status = localStatus() ?? status;
+  }
   const url = status.API_URL;
   const key = status.PUBLISHABLE_KEY ?? status.ANON_KEY;
   if (!url || !key) {

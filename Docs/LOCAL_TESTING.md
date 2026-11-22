@@ -21,7 +21,7 @@ both databases get the same change:
    - `npx supabase@3.2.0 migration up` applies new migrations and keeps your local data.
    - `npm run local:reset` starts from scratch: every migration, then the demo data.
 3. Run `npm run test:db`, then commit the migration together with the code that uses
-   it. Teammates pick it up with `git pull` and `npm run local:reset`.
+   it. Teammates pick it up with `git pull`, then `npm run local` (which resets) or `npm run local:reset`.
 4. Apply the same file to the shared project with
    `npx supabase@3.2.0 db push --remote`. Without `--remote` it targets your local
    database and just reports "Local database is up to date". Add `--dry-run` first to
@@ -66,7 +66,10 @@ npm run local
 
 1. The first run downloads the Docker images (a few minutes), builds the database
    from `supabase/migrations`, and loads the demo data from `supabase/seed.sql`.
-2. It then starts the app at http://localhost:3000, pointed at that database.
+2. Every run then resets the database: all the migrations again, then the demo data.
+   Recipes you saved, accounts you signed up and guests from the last run are gone.
+   To keep them, run `npm run local -- --keep`.
+3. It then starts the app at http://localhost:3000, pointed at that database.
    Your `.env.local` isn't changed; only the two Supabase settings are overridden
    for this run.
 
@@ -102,8 +105,9 @@ recipe, copy an entry in `supabase/seed.sql`, then run `npm run local:reset`.
 
 | Command | What it does |
 |---|---|
-| `npm run local` | Start the database if needed, then the app |
-| `npm run local:reset` | Wipe the local database, re-apply the migrations and reload the demo data |
+| `npm run local` | Start the database if needed, reset it to the migrations and demo data, then start the app |
+| `npm run local -- --keep` | The same, without the reset: keeps the last run's data |
+| `npm run local:reset` | Wipe the local database, re-apply the migrations and reload the demo data, without starting the app |
 | `npm run local:stop` | Stop the database. Its data is kept for next time. |
 | `npm run test:db` | Run the database tests in `supabase/tests` |
 
