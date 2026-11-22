@@ -554,7 +554,8 @@ export function NutritionPanel({
             <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
               <span className="text-lg font-bold">Calories</span>
               <span className="font-display text-5xl leading-none tabular-nums">
-                {n.kcal === null ? "—" : Math.round(n.kcal)}
+                {Math.round(n.kcal ?? 0)}
+                {n.kcal === null && <sup className="text-xs">†</sup>}
               </span>
             </div>
 
@@ -605,7 +606,8 @@ export function NutritionPanel({
                         {row.label}
                       </span>{" "}
                       <span className="tabular-nums">
-                        {fmtNutrient(value, row.unit)}
+                        {fmtNutrient(value ?? 0, row.unit)}
+                        {value === null && <sup>†</sup>}
                       </span>
                     </dt>
                     <dd className="font-semibold tabular-nums">
@@ -658,7 +660,8 @@ export function NutritionPanel({
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums">
-                      {i.nutrients ? formatCalories(i.nutrients.kcal) : "–"}
+                      {formatCalories(i.nutrients?.kcal ?? 0)}
+                      {i.nutrients?.kcal == null && <sup>†</sup>}
                     </span>
                   </li>
                 ))}
@@ -668,8 +671,8 @@ export function NutritionPanel({
         )}
 
         <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
-          * % Daily Value is based on a 2,000-calorie diet. A dash means a
-          nutrient value is unavailable.
+          * % Daily Value is based on a 2,000-calorie diet. † Zero is a
+          placeholder where nutrition data is unavailable.
         </p>
       </div>
     </section>
@@ -682,6 +685,6 @@ export function formatCalories(value: number | null) {
 
 export function fmtNutrient(value: number | null, unit: "g" | "mg") {
   if (value === null) return "—";
-  if (unit === "mg") return `${Math.round(value)}mg`;
+  if (unit === "mg") return `${Math.round(value)} mg`;
   return `${Number(value.toFixed(2))} g`;
 }
