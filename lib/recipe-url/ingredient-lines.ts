@@ -3,6 +3,7 @@
 // closest USDA Foundation Food. The import dialog shows the result for review,
 // so this aims to be right most of the time and to say when it's unsure.
 
+import { parseAmount } from "../amount.ts";
 import type { FoundationFood } from "../foundation-foods";
 
 export type ParsedLine = {
@@ -79,14 +80,11 @@ function canonicalUnit(word: string): { unit: string; factor: number } | null {
   return null;
 }
 
+// Like parseAmount, but also reads a decimal comma ("1,5" → 1.5), as
+// European recipe sites write it.
 export function toNumber(amount: string): number | null {
-  const a = amount.trim().replace(",", ".");
-  const mixed = a.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixed) return +mixed[1] + +mixed[2] / +mixed[3];
-  const frac = a.match(/^(\d+)\/(\d+)$/);
-  if (frac) return +frac[2] ? +frac[1] / +frac[2] : null;
-  const n = Number(a);
-  return a && Number.isFinite(n) ? n : null;
+  const n = parseAmount(amount.trim().replace(",", "."));
+  return n !== null && Number.isFinite(n) ? n : null;
 }
 
 function formatNumber(n: number) {

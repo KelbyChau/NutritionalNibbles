@@ -1,5 +1,8 @@
 import type { FoundationFood } from "./foundation-foods";
 import usdaPortions from "./usda-volume-portions.json" with { type: "json" };
+import { parseAmount } from "./amount.ts";
+
+export { parseAmount };
 
 // Nutrition estimates for the recipe builder.
 //
@@ -367,17 +370,6 @@ function findUsdaFood(description: string) {
     findFood(description) ??
     (second ? findFood(`${second} ${first}`) ?? findFood(`${first} ${second}`) : null)
   );
-}
-
-export function parseAmount(amount: string): number | null {
-  const a = amount.trim();
-  if (!a) return null;
-  const mixed = a.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixed) return +mixed[1] + +mixed[2] / +mixed[3];
-  const frac = a.match(/^(\d+)\/(\d+)$/);
-  if (frac) return +frac[1] / +frac[2];
-  const n = Number(a);
-  return Number.isFinite(n) ? n : null;
 }
 
 const weightUnits: Record<string, number> = {
