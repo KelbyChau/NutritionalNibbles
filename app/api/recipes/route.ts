@@ -4,8 +4,10 @@ import { createRecipe, listRecipes } from "@/lib/recipes/queries";
 import { parseListOptions, parseNewRecipe } from "@/lib/recipes/validation";
 
 /**
- * GET /api/recipes?scope=all|mine|public&limit=1..100&before=<ISO timestamp>
- * Recipe options: public recipes plus the signed-in user's own.
+ * GET /api/recipes?scope=all|mine|public&limit=1..100&before=<created_at>&before_id=<id>
+ * Recipe options: public recipes plus the signed-in user's own, newest first.
+ * Returns { recipes, next }. For the next page, send next.before and
+ * next.before_id back as query params; next is null on the last page.
  */
 export async function GET(request: NextRequest) {
   const options = parseListOptions(request.nextUrl.searchParams);
@@ -16,12 +18,12 @@ export async function GET(request: NextRequest) {
     return jsonError("Sign in to see your recipes", 401);
   }
 
-  const { data, error } = await listRecipes(supabase, userId, options.value);
+  const { recipes, next, error } = await listRecipes(supabase, userId, options.value);
   if (error) {
     console.error("GET /api/recipes", error);
     return jsonError("Could not load recipes", 500);
   }
-  return NextResponse.json({ recipes: data });
+  return NextResponse.json({ recipes, next });
 }
 
 /**
