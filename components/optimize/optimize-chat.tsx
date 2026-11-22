@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  BookmarkPlus,
   Check,
   Minus,
   Plus,
@@ -16,6 +16,8 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { SaveButton } from "@/components/save-button";
+import { saveMyRecipe } from "@/lib/my-recipes";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { calculateNutrition, type Nutrients } from "@/lib/nutrition";
 import {
@@ -68,13 +70,22 @@ type Suggestion = {
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
+// Next keeps visited pages alive (cacheComponents + <Activity>), so without
+// this a fresh visit would show the last recipe. Keying on bfcacheId starts a
+// new page on every link/push, while the Back button still restores it.
 export function OptimizeChat() {
+  const { bfcacheId } = useRouter();
+  return <OptimizeChatPage key={bfcacheId} />;
+}
+
+function OptimizeChatPage() {
   const { foods, status: catalogStatus } = useFoundationFoods();
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
   const [servings, setServings] = useState(2);
   const [original, setOriginal] = useState<Ingredient[]>([]);
   const [current, setCurrent] = useState<Ingredient[]>([]);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [history, setHistory] = useState<Ingredient[][]>([]);
   const [goal, setGoal] = useState<GoalKey | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -100,6 +111,7 @@ export function OptimizeChat() {
     setServings(draft.servings);
     setOriginal(draft.original);
     setCurrent(draft.current);
+    setSavedId(draft.savedId ?? null);
     nextId.current =
       Math.max(
         0,
@@ -124,8 +136,13 @@ export function OptimizeChat() {
   // Keep the draft up to date so a refresh or "Edit ingredients" keeps changes.
   useEffect(() => {
     if (!loaded || !original.length) return;
-    saveDraft({ title, servings, original, current });
-  }, [loaded, title, servings, original, current]);
+    saveDraft({ title, servings, original, current, savedId });
+  }, [loaded, title, servings, original, current, savedId]);
+
+  function save() {
+    const recipe = saveMyRecipe({ id: savedId, title, servings, ingredients: current });
+    setSavedId(recipe.id);
+  }
 
   useEffect(() => {
     logEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -469,7 +486,7 @@ export function OptimizeChat() {
   }
 
   return (
-    <Shell title={title} showSave>
+    <Shell title={title} onSave={current.length ? save : undefined}>
       <div className="flex min-h-0 flex-1 flex-col gap-6 px-4 pb-5 pt-4 sm:px-6 lg:px-8 xl:flex-row">
         {/* Chat */}
         <section className="flex min-h-[32rem] min-w-0 flex-1 flex-col">
@@ -723,11 +740,12 @@ export function OptimizeChat() {
 
 function Shell({
   title,
-  showSave,
+  onSave,
   children,
 }: {
   title: string;
-  showSave?: boolean;
+  /** Shown only when there's a recipe to save. */
+  onSave?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -751,16 +769,16 @@ function Shell({
           )}
         </div>
         <Link
-          href="/optimize"
+          href="/optimize?draft=1"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
         >
           <ArrowLeft className="size-4" />
           <span className="hidden sm:inline">Edit ingredients</span>
         </Link>
+        {onSave && <SaveButton onSave={onSave} />}
         <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
           <ThemeSwitcher />
         </div>
-        {showSave && <SaveButton />}
       </header>
       {children}
     </div>
@@ -769,30 +787,6 @@ function Shell({
 
 // UI only for now: nothing is stored yet. Hook this up to the recipes
 // table (insert the current ingredients + nutrition) when saving is built.
-function SaveButton() {
-  const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    if (!saved) return;
-    const t = setTimeout(() => setSaved(false), 2000);
-    return () => clearTimeout(t);
-  }, [saved]);
-  return (
-    <button
-      type="button"
-      onClick={() => setSaved(true)}
-      aria-live="polite"
-      className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-    >
-      {saved ? (
-        <Check className="size-4" />
-      ) : (
-        <BookmarkPlus className="size-4" />
-      )}
-      {saved ? "Saved" : "Save recipe"}
-    </button>
-  );
-}
-
 function ActionButton({
   action,
   onRun,
