@@ -168,6 +168,8 @@ export type OptimizeDraft = {
   servings: number;
   original: Ingredient[];
   current: Ingredient[];
+  /** Set once the recipe is saved, so saving again updates it. */
+  savedId?: string | null;
 };
 
 const DRAFT_KEY = "nutritionalnibbles:optimize-draft";
@@ -177,6 +179,14 @@ export function saveDraft(draft: OptimizeDraft) {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch {
     // Storage blocked (private window etc.): the chat page shows its empty state.
+  }
+}
+
+export function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Storage blocked: nothing to clear.
   }
 }
 
