@@ -102,19 +102,19 @@ export function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
             src={recipe.image_url}
             alt={recipe.title}
             style={{ maxWidth: `${blobScale * 60}%` }}
-            className="relative aspect-square max-h-[min(24rem,80%)] w-auto rounded-full object-cover shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]"
+            className="relative aspect-square max-h-[min(24rem,80%)] w-auto rounded-full object-cover shadow-panel"
           />
         ) : (
           <div
             style={{ width: `clamp(8rem, ${blobScale * 34}%, 16rem)` }}
-            className="relative flex aspect-square items-center justify-center rounded-full bg-card shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]"
+            className="relative flex aspect-square items-center justify-center rounded-full bg-card shadow-panel"
           >
             <UtensilsCrossed className="size-1/4 text-primary" />
           </div>
         )}
       </div>
 
-      <div className="surface-paper rounded-3xl bg-card p-4 shadow-[0_24px_48px_-32px_hsl(230_60%_15%/0.45)] sm:p-5">
+      <div className="surface-paper rounded-3xl bg-card p-4 shadow-panel sm:p-5">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {stats.map(({ icon: Icon, value, unit, label }) => (
             <div key={label} className="flex items-center gap-3">
@@ -237,7 +237,7 @@ export function RecipeCard({
               BUTTER,
             )}
           >
-            <UtensilsCrossed className="size-10 text-[hsl(229_73%_48%)]" />
+            <UtensilsCrossed className="size-10 text-primary" />
           </div>
         )}
       </div>

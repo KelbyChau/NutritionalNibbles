@@ -10,14 +10,25 @@ export default {
   ],
   theme: {
     extend: {
+      // The device's own system font (San Francisco on Apple devices), with
+      // Inter loaded for everything else. Numbers use the rounded variant.
       fontFamily: {
-        display: ["var(--font-display)", "ui-serif", "Georgia", "serif"],
+        sans: ["-apple-system", "BlinkMacSystemFont", '"SF Pro Text"', '"SF Pro Display"', "var(--font-inter)", "system-ui", "sans-serif"],
+        display: ["-apple-system", "BlinkMacSystemFont", '"SF Pro Display"', "var(--font-inter)", "system-ui", "sans-serif"],
+        rounded: ["ui-rounded", '"SF Pro Rounded"', "-apple-system", "BlinkMacSystemFont", "var(--font-inter)", "system-ui", "sans-serif"],
       },
       colors: {
+        nutrient: {
+          calories: "hsl(var(--nutrient-calories))",
+          protein: "hsl(var(--nutrient-protein))",
+          carbs: "hsl(var(--nutrient-carbs))",
+          fat: "hsl(var(--nutrient-fat))",
+        },
+        // Older name for the same colors, still used by the macro split bar.
         macro: {
-          protein: "hsl(var(--macro-protein))",
-          carbs: "hsl(var(--macro-carbs))",
-          fat: "hsl(var(--macro-fat))",
+          protein: "hsl(var(--nutrient-protein))",
+          carbs: "hsl(var(--nutrient-carbs))",
+          fat: "hsl(var(--nutrient-fat))",
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -61,9 +72,15 @@ export default {
         },
       },
       borderRadius: {
+        panel: "28px",
+        card: "20px",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        panel: "0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06)",
+        lift: "0 2px 6px rgb(0 0 0 / 0.06), 0 18px 40px rgb(0 0 0 / 0.10)",
       },
     },
   },

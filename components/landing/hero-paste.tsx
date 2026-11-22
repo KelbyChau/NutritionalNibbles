@@ -46,7 +46,7 @@ export function RecipeBox() {
       <form
         action="/optimize"
         method="get"
-        className="surface-paper grid gap-8 rounded-3xl bg-card p-6 shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)] sm:p-8 md:grid-cols-[1.4fr_1fr]"
+        className="surface-paper grid gap-8 rounded-3xl bg-card p-6 shadow-panel sm:p-8 md:grid-cols-[1.4fr_1fr]"
       >
         <div className="flex flex-col">
           <label htmlFor="recipe" className="font-display text-3xl leading-tight">
@@ -105,7 +105,7 @@ export function RecipeBox() {
           <Button
             type="submit"
             size="lg"
-            className="h-14 w-full rounded-full bg-[hsl(45_84%_72%)] text-base text-[hsl(230_50%_16%)] shadow-none hover:bg-[hsl(45_84%_66%)] md:mt-auto"
+            className="h-14 w-full rounded-full bg-primary text-base text-primary-foreground shadow-none hover:bg-primary/90 md:mt-auto"
           >
             Optimize
             <ArrowRight />

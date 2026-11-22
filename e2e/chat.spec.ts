@@ -29,7 +29,7 @@ test("chat servings, undo and reset keep the Before → Now table in step", asyn
 
   // Builder and back: the same foods and numbers (catalog loaded once per tab).
   const panel = page.getByRole("complementary", { name: "Estimated nutrition" });
-  const calories = panel.locator(".font-display.text-5xl");
+  const calories = panel.getByTestId("calories-value");
   const before = await settledNumber(calories);
   await page.getByRole("link", { name: "Edit ingredients" }).click();
   await expect(page.getByRole("complementary", { name: "Ingredients" })).toContainText("Asparagus");

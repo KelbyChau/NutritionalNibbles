@@ -575,9 +575,9 @@ function OptimizeChatPage() {
         <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-4 text-center">
           <span
             aria-hidden
-            className="flex size-20 items-center justify-center rounded-full bg-[hsl(45_84%_72%)]"
+            className="flex size-20 items-center justify-center rounded-full bg-muted"
           >
-            <UtensilsCrossed className="size-9 text-[hsl(230_50%_16%)]" />
+            <UtensilsCrossed className="size-9 text-foreground" />
           </span>
           <h2 className="mt-4 font-display text-4xl leading-tight">
             No recipe to optimize yet
@@ -618,7 +618,7 @@ function OptimizeChatPage() {
                   {m.role === "assistant" && (
                     <span
                       className={cn(
-                        "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[hsl(229_73%_48%)]",
+                        "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-primary",
                         BUTTER,
                       )}
                     >
@@ -659,7 +659,7 @@ function OptimizeChatPage() {
                 <li className="flex justify-start gap-3">
                   <span
                     className={cn(
-                      "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[hsl(229_73%_48%)]",
+                      "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-primary",
                       BUTTER,
                     )}
                   >

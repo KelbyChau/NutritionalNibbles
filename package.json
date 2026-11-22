@@ -7,6 +7,7 @@
     "lint": "eslint .",
     "test": "node --test \"lib/**/*.test.mjs\" \"components/**/*.test.mjs\"",
     "test:e2e": "playwright test",
+    "screenshots": "playwright test -c playwright.screens.config.ts",
     "local": "node scripts/local.mjs",
     "local:reset": "node scripts/local.mjs reset",
     "local:stop": "node scripts/local.mjs stop",

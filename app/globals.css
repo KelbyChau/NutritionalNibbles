@@ -2,97 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens: Apple-style canvas and surfaces, a NutritionalNibbles green
+   for actions, and one color per nutrient (used only for nutrient data).
+   See Docs/superpowers/specs/2026-11-22-apple-style-redesign-design.md. */
 @layer base {
   :root {
-    --background: 43 70% 95%;
-    --foreground: 230 50% 16%;
-    --card: 43 70% 97%;
-    --card-foreground: 230 50% 16%;
-    --popover: 43 70% 97%;
-    --popover-foreground: 230 50% 16%;
-    --primary: 229 73% 48%;
-    --primary-foreground: 43 70% 96%;
-    --secondary: 45 70% 88%;
-    --secondary-foreground: 230 50% 16%;
-    --muted: 43 35% 88%;
-    --muted-foreground: 230 15% 38%;
-    --accent: 45 84% 72%;
-    --accent-foreground: 230 50% 16%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 43 25% 82%;
-    --input: 43 25% 82%;
-    --ring: 229 73% 48%;
-    --macro-protein: 229 73% 48%;
-    --macro-carbs: 41 75% 47%;
-    --macro-fat: 9 75% 52%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --background: 240 11% 96%; /* #F5F5F7 canvas */
+    --foreground: 240 3% 12%; /* #1D1D1F ink */
+    --card: 0 0% 100%; /* #FFFFFF surface */
+    --card-foreground: 240 3% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 3% 12%;
+    --primary: 148 83% 26%; /* #0B7A3E action green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 8% 95%; /* #F2F2F4 second level */
+    --secondary-foreground: 240 3% 12%;
+    --muted: 240 8% 95%;
+    --muted-foreground: 240 2% 44%; /* #6E6E73 secondary ink */
+    --accent: 240 8% 95%;
+    --accent-foreground: 240 3% 12%;
+    --destructive: 356 82% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 83%; /* #D2D2D7 hairline */
+    --input: 240 6% 83%;
+    --ring: 148 83% 26%;
+    --nutrient-calories: 349 100% 59%; /* #FF2D55 */
+    --nutrient-protein: 241 61% 59%; /* #5856D6 */
+    --nutrient-carbs: 29 93% 43%; /* #D46B08, darker than #FF9500 for 3:1 on white */
+    --nutrient-fat: 190 85% 36%; /* #0E8EA8, darker than #30B0C7 for 3:1 on white */
+    --chart-1: 349 100% 59%;
+    --chart-2: 241 61% 59%;
+    --chart-3: 29 93% 43%;
+    --chart-4: 190 85% 36%;
+    --chart-5: 148 83% 26%;
+    --radius: 0.75rem;
   }
   .dark {
-    --background: 230 45% 10%;
-    --foreground: 43 70% 94%;
-    --card: 230 40% 14%;
-    --card-foreground: 43 70% 94%;
-    --popover: 230 40% 14%;
-    --popover-foreground: 43 70% 94%;
-    --primary: 45 84% 72%;
-    --primary-foreground: 230 50% 14%;
-    --secondary: 230 35% 16%;
-    --secondary-foreground: 43 70% 94%;
-    --muted: 230 30% 19%;
-    --muted-foreground: 43 15% 70%;
-    --accent: 230 35% 20%;
-    --accent-foreground: 43 70% 94%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 230 30% 22%;
-    --input: 230 30% 22%;
-    --ring: 45 84% 72%;
-    --macro-protein: 225 85% 70%;
-    --macro-carbs: 41 80% 58%;
-    --macro-fat: 9 80% 64%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 0 0% 0%; /* #000000 */
+    --foreground: 240 11% 96%; /* #F5F5F7 */
+    --card: 240 3% 11%; /* #1C1C1E */
+    --card-foreground: 240 11% 96%;
+    --popover: 240 3% 11%;
+    --popover-foreground: 240 11% 96%;
+    --primary: 135 64% 50%; /* #30D158 */
+    --primary-foreground: 0 0% 0%;
+    --secondary: 240 2% 18%; /* #2C2C2E */
+    --secondary-foreground: 240 11% 96%;
+    --muted: 240 2% 18%;
+    --muted-foreground: 240 2% 61%; /* #98989D */
+    --accent: 240 2% 18%;
+    --accent-foreground: 240 11% 96%;
+    --destructive: 3 100% 61%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 2% 22%; /* #38383A */
+    --input: 240 2% 22%;
+    --ring: 135 64% 50%;
+    --nutrient-calories: 348 100% 61%; /* #FF375F */
+    --nutrient-protein: 241 73% 63%; /* #5E5CE6 */
+    --nutrient-carbs: 36 100% 52%; /* #FF9F0A */
+    --nutrient-fat: 197 100% 70%; /* #64D2FF */
+    --chart-1: 348 100% 61%;
+    --chart-2: 241 73% 63%;
+    --chart-3: 36 100% 52%;
+    --chart-4: 197 100% 70%;
+    --chart-5: 135 64% 50%;
   }
 
-  /* Brand surfaces. They re-map the theme tokens, so any component placed
-     inside (including shadcn buttons) picks up the right colors in both
-     light and dark mode. */
-  .surface-cobalt {
-    --background: 229 73% 48%;
-    --foreground: 43 70% 96%;
-    --primary: 45 84% 72%;
-    --primary-foreground: 230 50% 16%;
-    --muted-foreground: 43 60% 88%;
-    --accent: 229 70% 56%;
-    --accent-foreground: 43 70% 96%;
-    --border: 43 70% 96% / 0.3;
-    --input: 43 70% 96% / 0.45;
-    --ring: 45 84% 72%;
+  /* A raised panel: white on the gray canvas with a soft shadow in light
+     mode; one step lighter than black (no shadow) in dark mode. */
+  .surface-paper {
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06);
+  }
+  .dark .surface-paper {
+    box-shadow: none;
+  }
+
+  /* A full-width black band (landing showcase). Re-maps the tokens so
+     anything inside reads correctly in both themes. */
+  .surface-band {
+    --background: 0 0% 0%;
+    --foreground: 240 11% 96%;
+    --card: 240 3% 11%;
+    --card-foreground: 240 11% 96%;
+    --muted: 240 2% 18%;
+    --muted-foreground: 240 2% 61%;
+    --border: 240 2% 22%;
+    --primary: 135 64% 50%;
+    --primary-foreground: 0 0% 0%;
+    --ring: 135 64% 50%;
+    --nutrient-calories: 348 100% 61%;
+    --nutrient-protein: 241 73% 63%;
+    --nutrient-carbs: 36 100% 52%;
+    --nutrient-fat: 197 100% 70%;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
-  .surface-paper {
-    --background: 43 70% 95%;
-    --input: 43 25% 82%;
-    --card: 43 70% 97%;
-    --card-foreground: 230 50% 16%;
-    --foreground: 230 50% 16%;
-    --muted: 43 35% 88%;
-    --muted-foreground: 230 15% 38%;
-    --border: 43 25% 82%;
-    --macro-protein: 229 73% 48%;
-    --macro-carbs: 41 75% 47%;
-    --macro-fat: 9 75% 52%;
-    color: hsl(var(--card-foreground));
+
+  /* Frosted glass, used only for the sticky nav and the chat input bar. */
+  .surface-glass {
+    background-color: hsl(var(--background) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 }
 
@@ -102,5 +114,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "kern";
+  }
+  ::selection {
+    background-color: hsl(var(--primary) / 0.2);
+  }
+  /* Display type: the system sans, semibold and tight, Apple-style. */
+  .font-display {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
   }
 }

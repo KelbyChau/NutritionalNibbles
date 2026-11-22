@@ -6,7 +6,7 @@ import { cn, hasEnvVars } from "@/lib/utils";
 
 // Butter-yellow keyboard focus ring; reads on the cobalt hero.
 export const focusRing =
-  "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(45_84%_72%)] focus-visible:ring-offset-4 focus-visible:ring-offset-transparent";
+  "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-transparent";
 
 const links = [
   { href: "#how-it-works", label: "How it works" },

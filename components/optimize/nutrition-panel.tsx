@@ -80,7 +80,7 @@ export function NutritionPanel({
           Estimated Nutrition
         </h2>
         {isSample && (
-          <p className="mt-2 w-fit rounded-full bg-[hsl(45_84%_72%)] px-3 py-1 text-[11px] font-medium text-[hsl(230_50%_16%)]">
+          <p className="mt-2 w-fit rounded-full bg-muted px-3 py-1 text-[11px] font-medium text-foreground">
             Sample data: add ingredients to see yours
           </p>
         )}
@@ -141,7 +141,7 @@ export function NutritionPanel({
               {calories === null && hasIngredients ? (
                 <span className="text-sm text-muted-foreground">Unavailable</span>
               ) : (
-                <span className="font-display text-5xl leading-none tabular-nums">
+                <span data-testid="calories-value" className="font-display text-5xl leading-none tabular-nums">
                   <AnimatedNumber value={calories ?? 0} format={fmtCount} />
                 </span>
               )}
@@ -229,7 +229,7 @@ export function NutritionPanel({
 
             {/* Anything we couldn't count */}
             {nutrition.skipped.length > 0 && (
-              <div className="mt-4 rounded-2xl bg-[hsl(45_84%_72%/0.35)] p-3 text-xs">
+              <div className="mt-4 rounded-2xl bg-nutrient-carbs/10 p-3 text-xs">
                 <p className="flex items-center gap-1.5 font-semibold">
                   <TriangleAlert className="size-3.5" />
                   Not counted in the totals

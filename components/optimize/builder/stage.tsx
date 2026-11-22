@@ -81,11 +81,11 @@ export function Stage({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.15 } }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex flex-col items-center justify-center text-center text-[hsl(230_50%_16%)]"
+                className="absolute inset-0 flex flex-col items-center justify-center text-center text-foreground"
               >
                 <span
                   aria-hidden
-                  className="flex size-20 items-center justify-center rounded-full bg-card shadow-[0_12px_24px_-16px_hsl(230_60%_15%/0.5)]"
+                  className="flex size-20 items-center justify-center rounded-full bg-card shadow-panel"
                 >
                   <UtensilsCrossed className="size-9 text-primary" />
                 </span>
@@ -119,7 +119,7 @@ export function Stage({
                     <IngredientArt
                       ingredient={ing}
                       sizeRem={spot.size}
-                      className="drop-shadow-[0_12px_14px_hsl(230_60%_15%/0.3)]"
+                      className="drop-shadow-[0_12px_14px_rgb(0_0_0/0.18)]"
                     />
                   </motion.div>
                 );

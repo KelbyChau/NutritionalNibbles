@@ -9,7 +9,7 @@ import { focusRing } from "./site-nav";
 export function ClosingCta() {
   return (
     <section className="px-4 pb-20 sm:px-6 md:pb-28">
-      <div className="surface-cobalt relative mx-auto max-w-6xl overflow-hidden rounded-3xl px-6 py-12 sm:px-12 md:py-16">
+      <div className="surface-band relative mx-auto max-w-6xl overflow-hidden rounded-3xl px-6 py-12 sm:px-12 md:py-16">
         <div
           aria-hidden
           // Hidden on phones, where it would sit behind the links.

@@ -50,7 +50,7 @@ export function Hero() {
         <ul className="mt-8 flex flex-col gap-2.5 text-sm sm:text-base">
           {reassurances.map((text) => (
             <li key={text} className="flex items-center gap-2.5">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[hsl(45_84%_72%)] text-[hsl(230_50%_16%)]">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Check className="size-3.5" strokeWidth={3} aria-hidden />
               </span>
               {text}

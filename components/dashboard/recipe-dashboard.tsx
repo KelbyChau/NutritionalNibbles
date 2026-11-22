@@ -224,7 +224,7 @@ export function RecipeDashboard({
               <span
                 title={userEmail ?? undefined}
                 className={cn(
-                  "flex size-12 items-center justify-center rounded-full font-display text-2xl uppercase text-[hsl(230_50%_16%)]",
+                  "flex size-12 items-center justify-center rounded-full font-display text-2xl uppercase text-foreground",
                   BUTTER,
                 )}
               >

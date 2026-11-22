@@ -17,7 +17,7 @@ const scaleMax = 70; // grams; keeps bar widths comparable across macros
 
 export function MacroSwapPreview() {
   return (
-    <figure className="surface-paper rounded-3xl bg-card p-6 shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)] sm:p-8">
+    <figure className="surface-paper rounded-3xl bg-card p-6 shadow-panel sm:p-8">
       <figcaption className="text-sm text-muted-foreground">
         {example.recipe}
       </figcaption>

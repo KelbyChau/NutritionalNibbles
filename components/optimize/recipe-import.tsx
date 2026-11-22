@@ -183,7 +183,7 @@ export function RecipeImport({
         ref={dialog}
         aria-labelledby="recipe-import-title"
         onClose={() => request.current?.abort()}
-        className="surface-paper m-auto w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-hidden rounded-3xl border border-border bg-card p-0 text-foreground shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)] backdrop:bg-[hsl(230_50%_10%/0.45)] backdrop:backdrop-blur-sm"
+        className="surface-paper m-auto w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-hidden rounded-3xl border border-border bg-card p-0 text-foreground shadow-panel backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       >
         <div className="flex max-h-[min(90dvh,52rem)] flex-col">
           <header className="flex items-start gap-3 border-b border-border px-5 pb-4 pt-5 sm:px-6">
@@ -508,7 +508,7 @@ function MatchBadge({ confidence }: { confidence: Row["confidence"] }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-        check ? "bg-[hsl(45_84%_72%)] text-[hsl(230_50%_16%)]" : "bg-muted text-muted-foreground",
+        check ? "bg-nutrient-carbs/15 text-foreground" : "bg-muted text-muted-foreground",
       )}
     >
       {check ? <TriangleAlert className="size-3" /> : <Check className="size-3" />}

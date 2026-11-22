@@ -74,8 +74,9 @@ export type Ingredient = IngredientInfo & {
 };
 
 // The landing page's butter yellow, fixed so it reads the same in both themes.
-export const BUTTER = "bg-[hsl(45_84%_72%)]";
-export const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
+// Backdrop behind ingredient art and small icons.
+export const BUTTER = "bg-muted";
+export const SHADOW = "shadow-lift";
 
 // ---- Small UI pieces ---------------------------------------------------------
 

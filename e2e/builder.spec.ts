@@ -13,7 +13,7 @@ test("add an ingredient from search and see nutrition follow the servings", asyn
   const nutrition = page.getByRole("complementary", { name: "Estimated nutrition" });
   await expect(nutrition).toContainText("1 of 1 ingredients counted");
 
-  const calories = nutrition.locator(".font-display.text-5xl");
+  const calories = nutrition.getByTestId("calories-value");
   const before = await settledNumber(calories);
   expect(before).toBeGreaterThan(0);
   await page.getByRole("button", { name: "More servings" }).click();

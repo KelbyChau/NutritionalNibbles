@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/landing/site-footer";
 export default function HomeV2() {
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="surface-cobalt relative overflow-hidden">
+      <div className="surface-band relative overflow-hidden">
         <SiteNav />
         <HeroPaste />
       </div>

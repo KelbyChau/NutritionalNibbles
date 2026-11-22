@@ -287,7 +287,7 @@ function RecipeBuilderPage() {
             inputRef={titleInput}
           />
 
-          <div className="surface-paper rounded-3xl bg-card p-4 shadow-[0_24px_48px_-32px_hsl(230_60%_15%/0.45)] sm:px-6">
+          <div className="surface-paper rounded-3xl bg-card p-4 shadow-panel sm:px-6">
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat
                 icon={Flame}

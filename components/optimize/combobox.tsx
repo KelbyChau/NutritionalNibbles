@@ -116,7 +116,7 @@ export function Combobox<
           "flex items-center gap-2 rounded-full border bg-card pl-4 pr-1.5 focus-within:border-primary",
           size === "lg" ? "h-14" : "h-12",
           error ? "border-destructive" : "border-border",
-          sendButton && "shadow-[0_16px_40px_-28px_hsl(230_60%_15%/0.5)]",
+          sendButton && "shadow-panel",
         )}
       >
         {leading}
