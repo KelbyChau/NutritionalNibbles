@@ -210,10 +210,14 @@ function RecipeBuilderPage() {
       unit: i.unit,
     }));
     nextId.current = id;
-    if (recipe.title) {
-      setTitle(recipe.title);
-      setNameMissing(false);
-    }
+    // An import is a new recipe. Forget any saved recipe that was open, so
+    // Save adds the import instead of replacing that recipe, and a refresh
+    // doesn't reopen it. A page with no title leaves the name blank to fill in.
+    window.history.replaceState(null, "", "/optimize");
+    setRecipeId(null);
+    setSavedId(null);
+    setTitle(recipe.title);
+    setNameMissing(false);
     setServings(recipe.servings);
     setIngredients(list);
     setRecipeStatus("");

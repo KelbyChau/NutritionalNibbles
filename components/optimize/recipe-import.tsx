@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { foodLabel, foodSuggestions, type FoundationFood } from "@/lib/foundation-foods";
 import { lookupIngredient } from "@/lib/ingredients";
 import { calculateNutrition } from "@/lib/nutrition";
-import { matchFood, parseLine, type FoodMatch } from "@/lib/recipe-url/ingredient-lines";
+import { combineDuplicates, matchFood, parseLine, type FoodMatch } from "@/lib/recipe-url/ingredient-lines";
 import type { ScrapedRecipe } from "@/lib/recipe-url/extract";
 import { cn } from "@/lib/utils";
 import { formatCalories, IngredientArt } from "./shared";
@@ -146,8 +146,10 @@ export function RecipeImport({
   }
 
   const included = rows.filter((r) => r.include && r.food);
+  const { ingredients: toAdd, combined } = combineDuplicates(included, (line) =>
+    calculateNutrition([{ name: line.food.description, ...line }], 1).items[0].grams);
   const nutrition = calculateNutrition(
-    included.map((r) => ({ name: foodLabel(r.food!.description), food: r.food!, amount: r.amount, unit: r.unit })),
+    toAdd.map((i) => ({ name: foodLabel(i.food.description), ...i })),
     servings,
   );
   const unmatched = rows.filter((r) => !r.food).length;
@@ -157,7 +159,7 @@ export function RecipeImport({
     onImport({
       title: title.trim(),
       servings,
-      ingredients: included.map((r) => ({ food: r.food!, amount: r.amount, unit: r.unit })),
+      ingredients: toAdd,
     });
     close();
     startOver();
@@ -214,7 +216,9 @@ export function RecipeImport({
                   <Link2 className="size-4 shrink-0 text-muted-foreground" />
                   <input
                     id="recipe-import-url"
-                    type="url"
+                    // Plain text, not type="url": the browser would refuse links without
+                    // "https://", which /api/recipe-import accepts.
+                    type="text"
                     inputMode="url"
                     autoComplete="off"
                     autoFocus
@@ -306,18 +310,25 @@ export function RecipeImport({
               <footer className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:px-6">
                 <div className="mr-auto text-sm">
                   <p className="font-medium">
-                    {included.length} of {rows.length} ingredients will be added
+                    {toAdd.length} {toAdd.length === 1 ? "ingredient" : "ingredients"} will be added
                     {included.length > 0 && (
                       <span className="font-normal text-muted-foreground">
                         {" · "}
                         {nutrition.knownCalories.perServing === null
                           ? "Calories unavailable"
                           : `≈ ${formatCalories(nutrition.knownCalories.perServing)} per serving`}
-                        {nutrition.knownCalories.counted > 0 && nutrition.knownCalories.counted < included.length &&
-                          ` (subtotal for ${nutrition.knownCalories.counted} of ${included.length} ingredients)`}
+                        {nutrition.knownCalories.counted > 0 && nutrition.knownCalories.counted < toAdd.length &&
+                          ` (subtotal for ${nutrition.knownCalories.counted} of ${toAdd.length} ingredients)`}
                       </span>
                     )}
                   </p>
+                  {combined > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {combined === 1
+                        ? "2 lines are the same food, so they’re combined into one ingredient."
+                        : `${combined} repeated lines are combined with the same food.`}
+                    </p>
+                  )}
                   {replacing > 0 && (
                     <p className="text-xs text-muted-foreground">
                       Replaces the {replacing} {replacing === 1 ? "ingredient" : "ingredients"} already in the builder.

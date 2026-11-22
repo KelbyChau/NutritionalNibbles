@@ -342,3 +342,43 @@ export function matchFood(name: string, foods: FoundationFood[]): FoodMatch {
   const missingCut = cuts.some((cut) => !best.item.tokens.has(cut));
   return { food: best.item.food, confidence: best.missing.length || changed || missingCut ? "check" : "sure" };
 }
+
+// ---- Combining repeated foods ---------------------------------------------------
+
+// A food appears once in a recipe (the builder's search won't add it twice),
+// so lines that matched the same USDA food become one ingredient: "2 tbsp
+// butter" + "1 tbsp butter" → 3 tbsp. Different units are added up in grams.
+type Line = { food: FoundationFood | null; amount: string; unit: string };
+
+// `weigh` returns a line's weight in grams, or null when its unit can't be
+// converted (calculateNutrition does this; passed in to keep this file free
+// of the nutrition tables).
+export function combineDuplicates(
+  rows: Line[],
+  weigh: (line: { food: FoundationFood; amount: string; unit: string }) => number | null,
+) {
+  const ingredients: { food: FoundationFood; amount: string; unit: string }[] = [];
+  let combined = 0;
+  for (const { food, amount, unit } of rows) {
+    if (!food) continue;
+    const i = ingredients.findIndex((x) => x.food.fdc_id === food.fdc_id);
+    if (i === -1) {
+      ingredients.push({ food, amount, unit });
+      continue;
+    }
+    combined++;
+    const prev = ingredients[i];
+    const a = toNumber(prev.amount);
+    const b = toNumber(amount);
+    if (a !== null && b !== null && prev.unit === unit) {
+      ingredients[i] = { food, amount: formatNumber(a + b), unit };
+      continue;
+    }
+    const ga = weigh(prev);
+    const gb = weigh({ food, amount, unit });
+    if (ga !== null && gb !== null) ingredients[i] = { food, amount: formatNumber(ga + gb), unit: "g" };
+    else if (ga === null && gb !== null) ingredients[i] = { food, amount, unit };
+    // Neither can be weighed: keep the first line as written.
+  }
+  return { ingredients, combined };
+}
