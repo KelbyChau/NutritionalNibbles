@@ -1,6 +1,8 @@
+import type { FoundationFood } from "./foundation-foods";
+
 // Nutrition estimates for the recipe builder.
 //
-// Values are per 100 g, approximated from USDA FoodData Central (SR Legacy)
+// Legacy sample values are per 100 g, approximated from USDA FoodData Central (SR Legacy)
 // reference foods. They are estimates for a hackathon demo: double-check
 // anything important against https://fdc.nal.usda.gov/ and replace this
 // table with a real lookup when there is time.
@@ -8,17 +10,10 @@
 // Assumptions worth knowing: pasta, rice and oats are DRY weights; beans,
 // chickpeas and lentils are COOKED/drained; meat and fish are RAW.
 
-export type Nutrients = {
-  kcal: number;
-  protein: number; // g
-  carbs: number; // g
-  fat: number; // g
-  satFat: number; // g
-  fiber: number; // g
-  sugar: number; // g
-  sodium: number; // mg
-  cholesterol: number; // mg
-};
+export type Nutrients = Record<
+  "kcal" | "protein" | "carbs" | "fat" | "satFat" | "fiber" | "sugar" | "sodium" | "cholesterol",
+  number | null
+>;
 
 type Food = {
   per100: [
@@ -337,7 +332,7 @@ export type RecipeNutrition = {
 
 export function findFood(name: string): { key: string; food: Food } | null {
   const n = name.toLowerCase().trim();
-  if (foods[n]) return { key: n, food: foods[n] };
+  if (Object.hasOwn(foods, n)) return { key: n, food: foods[n] };
   // Longest key first so "egg whites" beats "eggs" and "sweet potatoes" beats "potatoes".
   const keys = Object.keys(foods).sort((a, b) => b.length - a.length);
   for (const k of keys) {
@@ -368,9 +363,9 @@ const weightUnits: Record<string, number> = {
 };
 const pieceUnits = new Set(["", "clove", "slice", "can", "piece"]);
 
-function toGrams(qty: number, unit: string, food: Food): number | null {
+function toGrams(qty: number, unit: string, food?: Food): number | null {
   if (unit in weightUnits) return qty * weightUnits[unit];
-  const cup = food.cup;
+  const cup = food?.cup;
   if (unit === "cup") return cup ? qty * cup : null;
   if (unit === "tbsp") return cup ? (qty * cup) / 16 : null;
   if (unit === "tsp") return cup ? (qty * cup) / 48 : null;
@@ -378,17 +373,17 @@ function toGrams(qty: number, unit: string, food: Food): number | null {
   if (unit === "l") return cup ? (qty * cup * 1000) / 240 : qty * 1000;
   if (unit === "pinch") return qty * 0.4;
   if (unit === "handful") return qty * 30;
-  if (pieceUnits.has(unit)) return food.piece ? qty * food.piece : null;
+  if (pieceUnits.has(unit)) return food?.piece ? qty * food.piece : null;
   return null;
 }
 
 export function calculateNutrition(
-  ingredients: { name: string; amount: string; unit: string }[],
+  ingredients: { name: string; amount: string; unit: string; food?: FoundationFood }[],
   servings: number,
 ): RecipeNutrition {
   const items: IngredientNutrition[] = ingredients.map((ing) => {
-    const match = findFood(ing.name);
-    if (!match)
+    const match = findFood(ing.food?.description ?? ing.name);
+    if (!match && !ing.food)
       return {
         name: ing.name,
         grams: null,
@@ -396,67 +391,50 @@ export function calculateNutrition(
         issue: "Not in our nutrition table yet",
       };
     const qty = parseAmount(ing.amount);
-    if (qty === null)
+    if (qty === null || !Number.isFinite(qty) || qty <= 0)
       return {
         name: ing.name,
         grams: null,
         nutrients: null,
-        issue: "No amount given",
-        note: match.food.note,
+        issue: "Enter a positive amount",
+        note: ing.food ? undefined : match?.food.note,
       };
-    const grams = toGrams(qty, ing.unit, match.food);
-    if (grams === null)
+    const grams = toGrams(qty, ing.unit, match?.food);
+    if (grams === null || !Number.isFinite(grams))
       return {
         name: ing.name,
         grams: null,
         nutrients: null,
-        issue: `Can't convert “${ing.unit || "pieces"}” to grams — try g or cups`,
-        note: match.food.note,
+        issue: `Can't convert “${ing.unit || "pieces"}” to grams — enter a weight in grams`,
+        note: ing.food ? undefined : match?.food.note,
       };
-    const f = grams / 100;
-    const [
-      kcal,
-      protein,
-      carbs,
-      fat,
-      satFat,
-      fiber,
-      sugar,
-      sodium,
-      cholesterol,
-    ] = match.food.per100;
+    const per100 = ing.food
+      ? [ing.food.kcal_per_100g, ing.food.protein_per_100g, ing.food.carbs_per_100g,
+         ing.food.fat_per_100g, null, null, null, null, null]
+      : match!.food.per100;
+    const [kcal, protein, carbs, fat, satFat, fiber, sugar, sodium, cholesterol] =
+      per100.map(value => value === null ? null : value * grams / 100);
     return {
       name: ing.name,
       grams,
-      note: match.food.note,
-      nutrients: {
-        kcal: kcal * f,
-        protein: protein * f,
-        carbs: carbs * f,
-        fat: fat * f,
-        satFat: satFat * f,
-        fiber: fiber * f,
-        sugar: sugar * f,
-        sodium: sodium * f,
-        cholesterol: cholesterol * f,
-      },
+      note: ing.food ? undefined : match?.food.note,
+      nutrients: { kcal, protein, carbs, fat, satFat, fiber, sugar, sodium, cholesterol },
     };
   });
 
-  const total = items.reduce<Nutrients>(
-    (sum, i) => {
-      if (!i.nutrients) return sum;
-      const out = { ...sum };
-      for (const k of Object.keys(out) as (keyof Nutrients)[])
-        out[k] += i.nutrients[k];
-      return out;
-    },
-    { ...zero },
-  );
+  const total: Nutrients = { ...zero };
+  for (const item of items) {
+    if (!item.nutrients) continue; // Skipped items are explicitly listed in the panel.
+    for (const key of Object.keys(total) as (keyof Nutrients)[]) {
+      const running = total[key];
+      const contribution = item.nutrients[key];
+      total[key] = running === null || contribution === null ? null : running + contribution;
+    }
+  }
 
   const s = Math.max(1, servings);
   const perServing = Object.fromEntries(
-    Object.entries(total).map(([k, v]) => [k, v / s]),
+    Object.entries(total).map(([k, v]) => [k, v === null ? null : v / s]),
   ) as Nutrients;
 
   return {

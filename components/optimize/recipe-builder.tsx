@@ -14,7 +14,6 @@ import {
   Target,
   TriangleAlert,
   Users,
-  UtensilsCrossed,
   WandSparkles,
   Wheat,
   X,
@@ -23,7 +22,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import {
-  commonIngredients,
   formatAmount,
   lookupIngredient,
   parseIngredient,
@@ -35,6 +33,8 @@ import {
   type Nutrients,
   type RecipeNutrition,
 } from "@/lib/nutrition";
+import { createClient } from "@/lib/supabase/client";
+import { exactFood, foodLabel, foodSuggestions, type FoundationFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
 
 type GoalKey = "protein" | "calories" | "carbs" | "fat";
@@ -81,9 +81,9 @@ const goals: {
   },
 ];
 
-type Ingredient = IngredientInfo & { id: number; amount: string; unit: string };
+type Ingredient = IngredientInfo & { food: FoundationFood; id: number; amount: string; unit: string };
 type Message = { id: number; role: "user" | "assistant"; text: string };
-type Suggestion = { text: string; icon: LucideIcon; iconClass?: string };
+type Suggestion = { food?: FoundationFood; text: string; icon: LucideIcon; iconClass?: string };
 
 // The landing page's butter yellow, fixed so it reads the same in both themes.
 const BUTTER = "bg-[hsl(45_84%_72%)]";
@@ -124,20 +124,34 @@ export function RecipeBuilder() {
   );
   const nutrition = isSample ? sampleNutrition : realNutrition;
 
-  function addIngredients(texts: string[]) {
-    const added: Ingredient[] = [];
-    for (const t of texts) {
-      const parsed = parseIngredient(t);
-      if (!parsed) continue;
-      added.push({
-        ...lookupIngredient(parsed.name),
-        id: nextId.current++,
-        amount: parsed.amount,
-        unit: parsed.unit,
-      });
+  const [foods, setFoods] = useState<FoundationFood[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState("Loading USDA ingredients…");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let current = true;
+    async function load() {
+      try {
+        const { data, error } = await createClient().from("foundation_foods")
+          .select("fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g")
+          .order("fdc_id");
+        if (error || !data?.length) throw new Error("Catalog unavailable");
+        if (current) { setFoods(data); setCatalogStatus(""); }
+      } catch {
+        if (current) setCatalogStatus("Couldn’t load USDA ingredients.");
+      }
     }
-    if (added.length) setIngredients((list) => [...list, ...added]);
-    return added;
+    void load();
+    return () => { current = false; };
+  }, [attempt]);
+
+  function addFood(food: FoundationFood, parsed: { amount: string; unit: string }) {
+    const ingredient = {
+      ...lookupIngredient(foodLabel(food.description)), name: foodLabel(food.description), food, id: nextId.current++,
+      amount: parsed.amount || (parsed.unit ? "" : "100"),
+      unit: parsed.amount || parsed.unit ? parsed.unit : "g",
+    };
+    setIngredients(list => [...list, ingredient]);
+    return ingredient;
   }
 
   function removeIngredient(id: number) {
@@ -154,7 +168,7 @@ export function RecipeBuilder() {
 
   // Chat commands are handled here. Anything that needs the real optimizer
   // gets a placeholder reply until that backend exists.
-  function handleChat(text: string) {
+  function handleChat(text: string, picked?: Suggestion) {
     const t = text.trim();
     if (!t) return;
 
@@ -192,18 +206,21 @@ export function RecipeBuilder() {
     }
 
     if (/^add\s+/i.test(t) || /^\d/.test(t)) {
-      const parts = t
-        .replace(/^add\s+/i, "")
-        .split(/,|\band\b/i)
-        .map((p) => p.trim())
-        .filter(Boolean);
-      const added = addIngredients(parts);
-      return say(
-        t,
-        added.length
-          ? `Added ${added.map((a) => `${formatAmount(a).toLowerCase()} ${a.name.toLowerCase()}`.replace(/^to taste /, "")).join(", ")}.`
-          : "I couldn't read an ingredient there. Try “add 2 eggs”.",
-      );
+      if (catalogStatus) return say(t, catalogStatus);
+      const raw = t.replace(/^add\s+/i, "");
+      const parsed = parseIngredient(raw);
+      const whole = picked?.food ?? (parsed && exactFood(foods, parsed.name));
+      const parts = whole ? [raw] : raw.split(/,|\band\b/i);
+      const resolved = parts.map(part => {
+        const input = parseIngredient(part);
+        const food = whole ?? (input && exactFood(foods, input.name));
+        return input && food ? { input, food } : null;
+      });
+      if (resolved.some(item => !item)) {
+        return say(t, "Choose a matching USDA food from the suggestions to add it.");
+      }
+      const added = resolved.flatMap(item => item ? [addFood(item.food, item.input)] : []);
+      return say(t, `Added ${added.map(item => formatAmount(item) + " " + item.name).join(", ")}.`);
     }
 
     say(t, summary());
@@ -215,7 +232,7 @@ export function RecipeBuilder() {
     if (!goalInfo) missing.push("pick a goal");
     if (missing.length) return `To get started, ${missing.join(" and ")}.`;
     const per = realNutrition.perServing;
-    return `${ingredients.length} ingredients, ${servings} servings, about ${Math.round(per.kcal)} kcal and ${Math.round(per.protein)}g protein per serving (estimated). Goal: ${goalInfo!.phrase}. (The optimizer isn't connected yet, so this is a placeholder reply.)`;
+    return `${ingredients.length} ingredients, ${servings} servings, ${realNutrition.counted ? `estimated nutrition per serving: ${formatCalories(per.kcal)}, ${fmtNutrient(per.protein, "g")} protein` : "enter ingredient weights to estimate nutrition"}. Goal: ${goalInfo!.phrase}. (The optimizer isn't connected yet, so this is a placeholder reply.)`;
   }
 
   function optimize() {
@@ -294,7 +311,7 @@ export function RecipeBuilder() {
                 label="Calories / serving"
                 value={
                   nutrition.counted
-                    ? `${Math.round(nutrition.perServing.kcal)} kcal`
+                    ? formatCalories(nutrition.perServing.kcal)
                     : "–"
                 }
               />
@@ -303,7 +320,7 @@ export function RecipeBuilder() {
                 label="Protein / serving"
                 value={
                   nutrition.counted
-                    ? `${Math.round(nutrition.perServing.protein)} g`
+                    ? fmtNutrient(nutrition.perServing.protein, "g")
                     : "–"
                 }
               />
@@ -344,6 +361,7 @@ export function RecipeBuilder() {
           </div>
 
           <ChatBar
+            foods={foods}
             messages={messages}
             ingredients={ingredients}
             onSend={handleChat}
@@ -355,7 +373,12 @@ export function RecipeBuilder() {
           aria-label="Ingredients"
           className="flex min-h-0 shrink-0 flex-col xl:w-[20rem] 2xl:w-[23rem]"
         >
-          <AddIngredient onAdd={(t) => addIngredients([t]).length > 0} />
+          <AddIngredient foods={foods} onAdd={addFood} />
+          {catalogStatus && <p role="status" className="mt-2 text-sm">{catalogStatus}{" "}
+            {catalogStatus.startsWith("Couldn’t") && <button type="button" className="underline" onClick={() => {
+              setCatalogStatus("Loading USDA ingredients…"); setAttempt(n => n + 1);
+            }}>Retry</button>}
+          </p>}
           <p className="mb-3 mt-4 text-sm text-muted-foreground">
             {ingredients.length
               ? `${ingredients.length} ${ingredients.length === 1 ? "ingredient" : "ingredients"}`
@@ -366,14 +389,16 @@ export function RecipeBuilder() {
               <li key={i.id}>
                 <IngredientCard
                   ingredient={i}
+                  onAmountChange={(amount) => setIngredients((list) =>
+                    list.map((item) => item.id === i.id ? { ...item, amount } : item)
+                  )}
                   onRemove={() => removeIngredient(i.id)}
                 />
               </li>
             ))}
             {!ingredients.length && (
               <li className="rounded-3xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-                Add anything: “200g chicken breast”, “1 cup rice”, “2 eggs”, or
-                just “garlic”. You can also type “add …” in the chat.
+                Search for a USDA ingredient, such as “200g grape tomato”, and choose a match.
               </li>
             )}
           </ul>
@@ -381,7 +406,7 @@ export function RecipeBuilder() {
 
         {/* Nutrition facts */}
         <aside
-          aria-label="Nutrition facts"
+          aria-label="Estimated nutrition"
           className="flex min-h-0 shrink-0 flex-col xl:w-[19rem] 2xl:w-[21rem]"
         >
           <NutritionPanel
@@ -536,9 +561,11 @@ function Stat({
 
 function IngredientCard({
   ingredient,
+  onAmountChange,
   onRemove,
 }: {
   ingredient: Ingredient;
+  onAmountChange: (amount: string) => void;
   onRemove: () => void;
 }) {
   return (
@@ -547,9 +574,15 @@ function IngredientCard({
         <h3 className="line-clamp-2 font-display text-2xl leading-[1.05] tracking-tight">
           {ingredient.name}
         </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {formatAmount(ingredient)}
-        </p>
+        <label className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            aria-label={`Amount of ${ingredient.name} in ${ingredient.unit || "pieces"}`}
+            className="w-16 rounded border border-border bg-background px-2 py-1 text-foreground"
+            value={ingredient.amount}
+            onChange={(event) => onAmountChange(event.target.value)}
+          />
+          {ingredient.unit || "pieces"}
+        </label>
       </div>
       <div
         className={cn(
@@ -575,34 +608,33 @@ function IngredientCard({
   );
 }
 
-function AddIngredient({ onAdd }: { onAdd: (text: string) => boolean }) {
+function ingredientOptions(text: string, foods: FoundationFood[]) {
+  const parsed = parseIngredient(text);
+  if (!parsed) return [];
+  return foodSuggestions(foods, parsed.name).map(food => ({
+    food,
+    text: [parsed.amount, parsed.unit, foodLabel(food.description)].filter(Boolean).join(" "),
+    emoji: lookupIngredient(foodLabel(food.description)).emoji,
+  }));
+}
+
+function AddIngredient({ foods, onAdd }: {
+  foods: FoundationFood[];
+  onAdd: (food: FoundationFood, parsed: { amount: string; unit: string }) => void;
+}) {
   const [value, setValue] = useState("");
-  const [error, setError] = useState(false);
-
-  const parsed = parseIngredient(value);
-  const options = useMemo(() => {
-    const term = parsed?.name.toLowerCase() ?? "";
-    if (!term) return [];
-    return commonIngredients
-      .filter((i) => i.name.toLowerCase() !== term)
-      .map((i) => ({ i, score: matchScore(i.name.toLowerCase(), term) }))
-      .filter((m) => m.score > 0)
-      .sort((a, b) => b.score - a.score || a.i.name.localeCompare(b.i.name))
-      .slice(0, 5)
-      .map(({ i }) => ({
-        text: [parsed?.amount, parsed?.unit, i.name].filter(Boolean).join(" "),
-        icon: UtensilsCrossed,
-        emoji: i.emoji,
-      }));
-  }, [parsed?.name, parsed?.amount, parsed?.unit]);
-
-  function submit(text: string) {
-    if (onAdd(text)) {
-      setValue("");
-      setError(false);
-    } else {
-      setError(true);
+  const [error, setError] = useState("");
+  const options = ingredientOptions(value, foods);
+  function submit(text: string, option?: { food: FoundationFood }) {
+    const parsed = parseIngredient(text);
+    const food = option?.food ?? (parsed && exactFood(foods, parsed.name));
+    if (!parsed || !food) {
+      setError(options.length ? "Choose a USDA food from the suggestions." : "No matching USDA food. Try another ingredient.");
+      return;
     }
+    onAdd(food, parsed);
+    setValue("");
+    setError("");
   }
 
   return (
@@ -610,7 +642,7 @@ function AddIngredient({ onAdd }: { onAdd: (text: string) => boolean }) {
       value={value}
       onChange={(v) => {
         setValue(v);
-        setError(false);
+        setError("");
       }}
       onSubmit={submit}
       options={options}
@@ -622,7 +654,7 @@ function AddIngredient({ onAdd }: { onAdd: (text: string) => boolean }) {
       placeholder="Add an ingredient, e.g. 200g chicken"
       label="Add an ingredient"
       leading={<Plus className="size-4 text-primary" />}
-      error={error ? "Type an ingredient name, e.g. “2 eggs”." : undefined}
+      error={error}
       listPosition="below"
     />
   );
@@ -631,13 +663,15 @@ function AddIngredient({ onAdd }: { onAdd: (text: string) => boolean }) {
 // ---- Chat ----------------------------------------------------------------
 
 function ChatBar({
+  foods,
   messages,
   ingredients,
   onSend,
 }: {
+  foods: FoundationFood[];
   messages: Message[];
   ingredients: Ingredient[];
-  onSend: (text: string) => void;
+  onSend: (text: string, option?: Suggestion) => void;
 }) {
   const [value, setValue] = useState("");
   const logRef = useRef<HTMLOListElement>(null);
@@ -648,8 +682,8 @@ function ChatBar({
   }, [messages]);
 
   const options = useMemo(
-    () => chatSuggestions(value, ingredients),
-    [value, ingredients],
+    () => chatSuggestions(value, ingredients, foods),
+    [value, ingredients, foods],
   );
 
   return (
@@ -685,8 +719,8 @@ function ChatBar({
       <Combobox
         value={value}
         onChange={setValue}
-        onSubmit={(t) => {
-          onSend(t);
+        onSubmit={(t, option) => {
+          onSend(t, option);
           setValue("");
         }}
         options={options}
@@ -703,7 +737,7 @@ function ChatBar({
   );
 }
 
-function chatSuggestions(raw: string, ingredients: Ingredient[]): Suggestion[] {
+function chatSuggestions(raw: string, ingredients: Ingredient[], foods: FoundationFood[]): Suggestion[] {
   const q = raw.trim();
   if (!q) return [];
   const lower = q.toLowerCase();
@@ -711,24 +745,9 @@ function chatSuggestions(raw: string, ingredients: Ingredient[]): Suggestion[] {
 
   // "add …" or a leading amount: complete the ingredient name.
   if (/^(a|ad|add)\b/i.test(q) || /^\d/.test(q)) {
-    const parsed = parseIngredient(q.replace(/^(a|ad)$/i, ""));
-    const term = parsed?.name.toLowerCase() ?? "";
-    const prefix = [parsed?.amount, parsed?.unit].filter(Boolean).join(" ");
-    commonIngredients
-      .map((i) => ({
-        i,
-        score: term ? matchScore(i.name.toLowerCase(), term) : 0,
-      }))
-      .filter((m) => m.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
-      .forEach(({ i }) =>
-        out.push({
-          text: `Add ${prefix ? `${prefix} ` : ""}${i.name.toLowerCase()}`,
-          icon: Plus,
-          iconClass: "text-primary",
-        }),
-      );
+    for (const option of ingredientOptions(q.replace(/^add\s*/i, ""), foods)) {
+      out.push({ text: "Add " + option.text, food: option.food, icon: Plus });
+    }
   }
 
   // Goal prompts, plus remove/swap for ingredients already in the list.
@@ -762,7 +781,7 @@ function chatSuggestions(raw: string, ingredients: Ingredient[]): Suggestion[] {
 
 // ---- Shared combobox (input + suggestion popup) ---------------------------
 
-function Combobox<T extends { text: string; icon?: LucideIcon }>({
+function Combobox<T extends { text: string; icon?: LucideIcon; food?: FoundationFood }>({
   value,
   onChange,
   onSubmit,
@@ -777,7 +796,7 @@ function Combobox<T extends { text: string; icon?: LucideIcon }>({
 }: {
   value: string;
   onChange: (v: string) => void;
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, option?: T) => void;
   options: T[];
   renderIcon: (o: T) => React.ReactNode;
   placeholder: string;
@@ -794,8 +813,8 @@ function Combobox<T extends { text: string; icon?: LucideIcon }>({
 
   useEffect(() => setActive(-1), [value]);
 
-  function pick(text: string) {
-    onSubmit(text);
+  function pick(text: string, option?: T) {
+    onSubmit(text, option);
     setOpen(false);
   }
 
@@ -813,7 +832,7 @@ function Combobox<T extends { text: string; icon?: LucideIcon }>({
       setOpen(false);
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      if (show && active >= 0) pick(options[active].text);
+      if (show && active >= 0) pick(options[active].text, options[active]);
       else if (value.trim()) pick(value);
     }
   }
@@ -833,13 +852,13 @@ function Combobox<T extends { text: string; icon?: LucideIcon }>({
         >
           {options.map((o, i) => (
             <li
-              key={o.text}
+              key={o.text + i}
               id={`${listId}-${i}`}
               role="option"
               aria-selected={i === active}
               onMouseDown={(e) => {
                 e.preventDefault(); // keep focus in the input
-                pick(o.text);
+                pick(o.text, o);
               }}
               onMouseEnter={() => setActive(i)}
               className={cn(
@@ -916,13 +935,6 @@ function Combobox<T extends { text: string; icon?: LucideIcon }>({
   );
 }
 
-function matchScore(candidate: string, term: string) {
-  if (candidate.startsWith(term)) return 3;
-  if (candidate.split(/\s+/).some((w) => w.startsWith(term))) return 2;
-  if (term.length >= 3 && candidate.includes(term)) return 1;
-  return 0;
-}
-
 // ---- Nutrition facts -----------------------------------------------------
 
 // Dummy recipe shown in the panel while the ingredient list is empty.
@@ -970,10 +982,11 @@ function NutritionPanel({
   const n = scope === "serving" ? nutrition.perServing : nutrition.total;
 
   // Share of calories from each macro (4/4/9 kcal per gram).
+  const hasMacroSplit = n.protein !== null && n.carbs !== null && n.fat !== null;
   const macroKcal = {
-    protein: n.protein * 4,
-    carbs: n.carbs * 4,
-    fat: n.fat * 9,
+    protein: (n.protein ?? 0) * 4,
+    carbs: (n.carbs ?? 0) * 4,
+    fat: (n.fat ?? 0) * 9,
   };
   const macroSum = macroKcal.protein + macroKcal.carbs + macroKcal.fat;
   const split = [
@@ -996,7 +1009,7 @@ function NutritionPanel({
     <section className="surface-paper flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
         <h2 className="font-display text-4xl leading-none tracking-tight">
-          Nutrition Facts
+          Estimated Nutrition
         </h2>
         {isSample && (
           <p className="mt-2 w-fit rounded-full bg-[hsl(45_84%_72%)] px-3 py-1 text-[11px] font-medium text-[hsl(230_50%_16%)]">
@@ -1034,10 +1047,11 @@ function NutritionPanel({
             ` · ${nutrition.counted} of ${nutrition.items.length} ingredients counted`}
         </p>
 
-        {!hasIngredients ? (
+        {!hasIngredients || nutrition.counted === 0 ? (
           <p className="mt-6 rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-            Add ingredients with amounts and the full nutrition breakdown shows
-            up here.
+            {hasIngredients
+              ? nutrition.skipped.map((item) => item.name + ": " + item.issue).join(" · ")
+              : "Add ingredients with amounts to see estimated nutrition."}
           </p>
         ) : (
           <>
@@ -1045,12 +1059,12 @@ function NutritionPanel({
             <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
               <span className="text-lg font-bold">Calories</span>
               <span className="font-display text-5xl leading-none tabular-nums">
-                {Math.round(n.kcal)}
+                {n.kcal === null ? "—" : Math.round(n.kcal)}
               </span>
             </div>
 
             {/* Macro split */}
-            {macroSum > 0 && (
+            {hasMacroSplit && macroSum > 0 && (
               <div className="mt-3">
                 <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
                   {split.map((m) => (
@@ -1100,7 +1114,7 @@ function NutritionPanel({
                       </span>
                     </dt>
                     <dd className="font-semibold tabular-nums">
-                      {dv ? `${Math.round((value / dv) * 100)}%` : ""}
+                      {dv && value !== null ? `${Math.round((value / dv) * 100)}%` : ""}
                     </dd>
                   </div>
                 );
@@ -1148,7 +1162,7 @@ function NutritionPanel({
                     </span>
                     <span className="shrink-0 tabular-nums">
                       {i.nutrients
-                        ? `${Math.round(i.nutrients.kcal)} kcal`
+                        ? formatCalories(i.nutrients.kcal)
                         : "–"}
                     </span>
                   </li>
@@ -1159,16 +1173,19 @@ function NutritionPanel({
         )}
 
         <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
-          * % Daily Value is based on a 2,000-calorie diet. Estimates from USDA
-          reference values for raw or dry ingredients. Not medical advice.
+          * % Daily Value is based on a 2,000-calorie diet. A dash means a nutrient value is unavailable.
         </p>
       </div>
     </section>
   );
 }
 
-function fmtNutrient(value: number, unit: "g" | "mg") {
+function formatCalories(value: number | null) {
+  return value === null ? "—" : `${Math.round(value)} kcal`;
+}
+
+function fmtNutrient(value: number | null, unit: "g" | "mg") {
+  if (value === null) return "—";
   if (unit === "mg") return `${Math.round(value)}mg`;
-  if (value > 0 && value < 1) return "<1g";
-  return `${Math.round(value)}g`;
+  return `${Number(value.toFixed(2))} g`;
 }

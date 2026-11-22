@@ -1,19 +1,32 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { foodLabel } from "@/lib/foundation-foods";
 import { createClient } from "@/lib/supabase/client";
 
-type Food = { fdc_id: number; description: string };
+const nutrients = [
+  ["kcal_per_100g", "Calories", "kcal"],
+  ["protein_per_100g", "Protein", "g"],
+  ["carbs_per_100g", "Carbs", "g"],
+  ["fat_per_100g", "Fat", "g"],
+] as const;
+type Food = { fdc_id: number; description: string } &
+  Record<(typeof nutrients)[number][0], number | null>;
+type Ingredient = Food & { grams: string };
 
 export function FoundationFoodPicker() {
   const supabase = useMemo(() => createClient(), []);
   const listId = useId();
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<Food[]>([]);
-  const [selected, setSelected] = useState<Food[]>([]);
+  const [selected, setSelected] = useState<Ingredient[]>([]);
   const [active, setActive] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [servings, setServings] = useState("1");
+  const validServings = Number.isInteger(Number(servings)) && Number(servings) > 0;
+  const validWeights = selected.length > 0 && selected.every(food => Number(food.grams) > 0);
 
   useEffect(() => {
     const term = query.trim();
@@ -22,7 +35,7 @@ export function FoundationFoodPicker() {
     const timer = setTimeout(async () => {
       setLoading(true);
       setError("");
-      const { data, error: searchError } = await supabase.rpc("search_foundation_foods", {
+      const { data, error: searchError } = await supabase.rpc("search_foundation_ingredients", {
         search_text: term,
       });
       if (cancelled) return;
@@ -43,7 +56,7 @@ export function FoundationFoodPicker() {
 
   function choose(food: Food) {
     setSelected((current) =>
-      current.some((item) => item.fdc_id === food.fdc_id) ? current : [...current, food],
+      current.some((item) => item.fdc_id === food.fdc_id) ? current : [...current, { ...food, grams: "100" }],
     );
     setQuery("");
     setMatches([]);
@@ -51,7 +64,7 @@ export function FoundationFoodPicker() {
   }
 
   return (
-    <div className="space-y-4">
+    <fieldset className="space-y-4">
       <div className="relative">
         <label htmlFor="foundation-food-search" className="mb-2 block font-medium">
           Ingredients you have
@@ -101,7 +114,7 @@ export function FoundationFoodPicker() {
                   onClick={() => choose(food)}
                   className={`w-full rounded-md px-3 py-2 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active === index ? "bg-secondary" : ""}`}
                 >
-                  {food.description}
+                  {foodLabel(food.description)}
                 </button>
               </li>
             ))}
@@ -115,10 +128,16 @@ export function FoundationFoodPicker() {
         <div aria-label="Selected ingredients" className="flex flex-wrap gap-2">
           {selected.map((food) => (
             <span key={food.fdc_id} className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm">
-              {food.description}
+              {foodLabel(food.description)}
+              <label>Grams
+                <input type="number" min="0" step="any" aria-label={foodLabel(food.description) + " grams"}
+                  className="w-24 rounded border p-1" value={food.grams}
+                  onChange={e => setSelected(items => items.map(item => item.fdc_id === food.fdc_id
+                    ? { ...item, grams: e.target.value } : item))} />
+              </label>
               <button
                 type="button"
-                aria-label={`Remove ${food.description}`}
+                aria-label={`Remove ${foodLabel(food.description)}`}
                 onClick={() => setSelected((items) => items.filter((item) => item.fdc_id !== food.fdc_id))}
                 className="rounded-full px-1 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
@@ -128,7 +147,25 @@ export function FoundationFoodPicker() {
           ))}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">Selected foods are ready to use when recipe generation is added.</p>
-    </div>
+      <label className="block">Servings
+        <input className="ml-2 w-20 rounded border p-1" type="number" min="1" step="1"
+          value={servings} onChange={e => setServings(e.target.value)} />
+      </label>
+      <section aria-label="Estimated nutrition">
+        <h2 className="font-medium">Estimated nutrition</h2>
+        <table className="w-full text-left text-sm">
+          <thead><tr><th>Nutrient</th><th>Whole recipe</th><th>Per serving</th></tr></thead>
+          <tbody>{nutrients.map(([key, label, unit]) => {
+            const known = validWeights && selected.every(food => food[key] != null);
+            const total = selected.reduce((sum, food) => sum + (food[key] ?? 0) * Number(food.grams) / 100, 0);
+            return <tr key={key}><th scope="row">{label}</th>
+              <td>{known ? total.toFixed(1) + " " + unit : "—"}</td>
+              <td>{known && validServings ? (total / Number(servings)).toFixed(1) + " " + unit : "—"}</td></tr>;
+          })}</tbody>
+        </table>
+        {selected.some(food => nutrients.some(([key]) => food[key] == null)) &&
+          <p className="text-sm">A dash marks an estimate with missing USDA data.</p>}
+      </section>
+    </fieldset>
   );
 }
