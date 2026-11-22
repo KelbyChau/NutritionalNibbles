@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dumbbell,
   Flame,
+  Import,
   LayoutGrid,
   Minus,
   Plus,
@@ -140,6 +141,14 @@ export function RecipeBuilder() {
           <LayoutGrid className="size-4" />
           <span className="hidden sm:inline">Dashboard</span>
         </Link>
+        {/* UI only for now: no import behavior yet. */}
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
+        >
+          <Import className="size-4" />
+          <span className="hidden sm:inline">Import</span>
+        </button>
         <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
           <ThemeSwitcher />
         </div>
