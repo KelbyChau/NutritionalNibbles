@@ -27,6 +27,11 @@ import {
   type FoundationFood,
 } from "@/lib/foundation-foods";
 import { parseIngredient } from "@/lib/ingredients";
+import {
+  nutrients,
+  promptTargets,
+  type VerifiedSwap,
+} from "@/lib/optimizer/nutrient-swaps";
 import { cn } from "@/lib/utils";
 import {
   BUTTER,
@@ -52,7 +57,9 @@ import {
 } from "./changes";
 
 type Action =
-  { type: "goal"; goal: GoalKey } | { type: "change"; change: Change };
+  | { type: "goal"; goal: GoalKey }
+  | { type: "change"; change: Change }
+  | { type: "nutrientSwap"; swap: VerifiedSwap; from: Ingredient; servings: number; label: string };
 
 type Message = {
   id: number;
@@ -69,6 +76,15 @@ type Suggestion = {
 };
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+const formatAmount = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
+
+function describeReduction(swap: VerifiedSwap) {
+  return swap.reductions.map(({ target, perServing }) => {
+    const { label, unit } = nutrients[target];
+    const amount = formatAmount.format(unit === "mg" ? Math.round(perServing) : perServing);
+    return `${amount} ${unit} less ${label}`;
+  }).join(" and ") + " per serving";
+}
 
 // Next keeps visited pages alive (cacheComponents + <Activity>), so without
 // this a fresh visit would show the last recipe. Keying on bfcacheId starts a
@@ -90,6 +106,8 @@ function OptimizeChatPage() {
   const [goal, setGoal] = useState<GoalKey | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [checkingSwaps, setCheckingSwaps] = useState(false);
+  const checkingSwapsRef = useRef(false);
   const nextId = useRef(1);
   const logEnd = useRef<HTMLDivElement>(null);
 
@@ -127,7 +145,7 @@ function OptimizeChatPage() {
           `Here's ${draft.title ? `your ${draft.title}` : "your recipe"}: ${draft.current.length} ingredients, ` +
           `${n.kcal === null ? "calories unavailable" : `about ${Math.round(n.kcal)} kcal`}` +
           `${n.protein === null ? "" : ` and ${Math.round(n.protein)} g protein`} per serving (estimated).\n\n` +
-          "What do you want to optimize? Pick a goal, or tell me a change, like “swap heavy cream for Greek yogurt”, “use half the butter” or “change chicken to 300 g”.",
+          "What do you want to optimize? Pick a goal or ask for a change, like “make this lower in sodium” or “swap heavy cream for Greek yogurt”.",
         actions: goals.map((g) => ({ type: "goal", goal: g.key })),
       },
     ]);
@@ -237,6 +255,49 @@ function OptimizeChatPage() {
       });
     }
     commit(change.apply(current), change.command, `Done: ${change.label}.`);
+  }
+
+  async function suggestNutrientSwaps(prompt: string) {
+    if (checkingSwapsRef.current) return;
+    checkingSwapsRef.current = true;
+    setCheckingSwaps(true);
+    push({ role: "user", text: prompt });
+    try {
+      const response = await fetch("/api/optimize/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt, title, servings,
+          ingredients: current.map(({ id, food, amount, unit }) => ({
+            id, fdcId: food.fdc_id, amount, unit,
+          })),
+        }),
+      });
+      const result: { swaps?: VerifiedSwap[]; message?: string; error?: string } = await response.json();
+      if (!response.ok) {
+        push({ role: "assistant", text: result.error ?? "I couldn’t check swaps right now. Try again in a moment." });
+        return;
+      }
+      const actions: Extract<Action, { type: "nutrientSwap" }>[] = (result.swaps ?? []).flatMap((swap) => {
+        const from = current.find((item) => item.id === swap.ingredientId);
+        if (!from) return [];
+        const label = `${from.name} → ${foodLabel(swap.replacement.description)}`;
+        return [{ type: "nutrientSwap", swap, from, servings, label }];
+      });
+      push({
+        role: "assistant",
+        text: actions.length
+          ? "Here are USDA swaps I checked. Each estimate is for one swap at the same weight.\n\n" +
+            actions.map(({ label, swap }) => `${label} (${formatAmount.format(swap.grams)} g): ${describeReduction(swap)}.`).join("\n\n")
+          : result.message ?? "I couldn’t verify a suitable swap for this recipe using the USDA catalog.",
+        actions,
+      });
+    } catch {
+      push({ role: "assistant", text: "I couldn’t check swaps right now. Try again in a moment." });
+    } finally {
+      checkingSwapsRef.current = false;
+      setCheckingSwaps(false);
+    }
   }
 
   function handle(text: string, picked?: Suggestion) {
@@ -419,6 +480,8 @@ function OptimizeChatPage() {
       );
     }
 
+    if (promptTargets(t).length) return void suggestNutrientSwaps(t);
+
     const mentioned = goals.find((g) => g.words.test(t));
     if (mentioned) {
       setGoal(mentioned.key);
@@ -441,8 +504,8 @@ function OptimizeChatPage() {
           "• a goal: “make it higher protein”, “lower calorie”, “lower carb”, “lower fat”\n" +
           "• “swap heavy cream for Greek yogurt” or “swap rice for something lighter”\n" +
           "• “use half the butter”, “use 25% less pasta”, “change chicken to 300 g”\n" +
-          "• “remove garlic”, “add 100 g spinach”, “4 servings”, “undo”, “reset”\n\n" +
-          "Free-form requests need the AI optimizer, which isn't connected yet.",
+          "• “remove garlic”, “add 100 g spinach”, “4 servings”, “undo”, “reset”\n" +
+          "• “make this recipe lower in sugar” or “reduce the sodium”",
         actions: goal
           ? undefined
           : goals.map((g) => ({ type: "goal", goal: g.key })),
@@ -455,8 +518,21 @@ function OptimizeChatPage() {
       const info = goals.find((g) => g.key === a.goal)!;
       setGoal(a.goal);
       suggestFor(a.goal, `Make it ${info.phrase}`);
-    } else {
+    } else if (a.type === "change") {
       applyChange(a.change);
+    } else {
+      const item = current.find((i) => i.id === a.from.id);
+      if (!item || item.food.fdc_id !== a.from.food.fdc_id || item.amount !== a.from.amount ||
+          item.unit !== a.from.unit || servings !== a.servings) {
+        push({ role: "assistant", text: "The ingredient or serving count changed. Ask for a new suggestion to verify the reduction." });
+        return;
+      }
+      const replacement = makeIngredient(a.swap.replacement, { amount: String(a.swap.grams), unit: "g" }, item.id);
+      commit(
+        current.map((i) => i.id === item.id ? replacement : i),
+        `Apply: ${a.label}`,
+        `Swapped ${item.name} for ${replacement.name}. Estimated ${describeReduction(a.swap)}.`,
+      );
     }
   }
 
@@ -587,15 +663,15 @@ function OptimizeChatPage() {
               renderIcon={(o) => (
                 <o.icon className={cn("size-4", o.iconClass)} />
               )}
-              placeholder="Tell me what to change: “swap butter for…”, “use less pasta”…"
+              placeholder="Tell me what to change: “reduce the sodium”, “swap butter for…”"
               label="Tell the optimizer what to change"
               leading={<Sparkles className="size-4 text-primary" />}
               sendButton
               size="lg"
               listPosition="above"
             />
-            <p className="mt-2 text-center text-[11px] text-muted-foreground">
-              Nutrition is estimated from USDA values. Not medical advice.
+            <p role="status" className="mt-2 text-center text-[11px] text-muted-foreground">
+              {checkingSwaps ? "Checking USDA swaps…" : "Nutrition is estimated from USDA values. Not medical advice."}
             </p>
           </div>
         </section>
@@ -820,7 +896,7 @@ function ActionButton({
       className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-left text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
     >
       <Check className="size-3.5 shrink-0" />
-      Apply: {action.change.label}
+      Apply: {action.type === "nutrientSwap" ? action.label : action.change.label}
     </button>
   );
 }

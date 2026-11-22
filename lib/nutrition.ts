@@ -410,7 +410,8 @@ export function calculateNutrition(
       };
     const per100 = ing.food
       ? [ing.food.kcal_per_100g, ing.food.protein_per_100g, ing.food.carbs_per_100g,
-         ing.food.fat_per_100g, null, null, null, null, null]
+         ing.food.fat_per_100g, null, null, ing.food.total_sugars_g_per_100g ?? null,
+         ing.food.sodium_mg_per_100g ?? null, null]
       : match!.food.per100;
     const [kcal, protein, carbs, fat, satFat, fiber, sugar, sodium, cholesterol] =
       per100.map(value => value === null ? null : value * grams / 100);

@@ -91,8 +91,6 @@ export const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
 
 // ---- USDA catalog ------------------------------------------------------------
 
-const FOOD_COLUMNS =
-  "fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g";
 const PAGE = 1000; // Supabase returns at most 1,000 rows per request
 
 // Every USDA food the app can use, from both catalogs: Foundation Foods
@@ -108,7 +106,7 @@ export function useUsdaFoods() {
       try {
         const supabase = createClient();
         const [foundation, legacyCount] = await Promise.all([
-          supabase.from("foundation_foods").select(FOOD_COLUMNS).order("fdc_id"),
+          supabase.from("foundation_foods").select().order("fdc_id"),
           supabase.from("sr_legacy_foods").select("fdc_id", { count: "exact", head: true }),
         ]);
         if (foundation.error || !foundation.data?.length || legacyCount.error)
@@ -117,7 +115,7 @@ export function useUsdaFoods() {
           Array.from({ length: Math.ceil((legacyCount.count ?? 0) / PAGE) }, (_, i) =>
             supabase
               .from("sr_legacy_foods")
-              .select(FOOD_COLUMNS)
+              .select()
               .order("fdc_id")
               .range(i * PAGE, (i + 1) * PAGE - 1),
           ),
