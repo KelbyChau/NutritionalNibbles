@@ -35,7 +35,9 @@ import {
   fmtCount,
   fmtNutrient,
   formatCalories,
+  alreadyAddedMessage,
   ingredientOptions,
+  ingredientWithFood,
   clearDraft,
   loadDraft,
   makeIngredient,
@@ -190,10 +192,12 @@ function RecipeBuilderPage() {
     food: FoundationFood,
     parsed: { amount: string; unit: string },
   ) {
-    setIngredients((list) => [
-      ...list,
-      makeIngredient(food, parsed, nextId.current++),
-    ]);
+    setIngredients((list) =>
+      // Each food appears once; AddIngredient explains why it wasn't added.
+      ingredientWithFood(list, food)
+        ? list
+        : [...list, makeIngredient(food, parsed, nextId.current++)],
+    );
   }
 
   function removeIngredient(id: number) {
@@ -368,7 +372,7 @@ function RecipeBuilderPage() {
           aria-label="Ingredients"
           className="flex min-h-0 shrink-0 flex-col xl:w-[20rem] 2xl:w-[23rem]"
         >
-          <AddIngredient foods={foods} onAdd={addFood} />
+          <AddIngredient foods={foods} ingredients={ingredients} onAdd={addFood} />
           {catalogStatus && (
             <p role="status" className="mt-2 text-sm">
               {catalogStatus}{" "}
@@ -621,9 +625,11 @@ function IngredientCard({
 
 function AddIngredient({
   foods,
+  ingredients,
   onAdd,
 }: {
   foods: FoundationFood[];
+  ingredients: Ingredient[];
   onAdd: (
     food: FoundationFood,
     parsed: { amount: string; unit: string },
@@ -631,7 +637,8 @@ function AddIngredient({
 }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
-  const options = ingredientOptions(value, foods);
+  // Foods already in the recipe aren't suggested.
+  const options = ingredientOptions(value, foods, ingredients);
   function submit(text: string, option?: { food: FoundationFood }) {
     const parsed = parseIngredient(text);
     const food = option?.food ?? (parsed && exactFood(foods, parsed.name));
@@ -641,6 +648,11 @@ function AddIngredient({
           ? "Choose a USDA food from the suggestions."
           : "No matching USDA food. Try another ingredient.",
       );
+      return;
+    }
+    const existing = ingredientWithFood(ingredients, food);
+    if (existing) {
+      setError(alreadyAddedMessage(existing));
       return;
     }
     onAdd(food, parsed);
