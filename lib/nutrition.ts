@@ -325,6 +325,7 @@ export type IngredientNutrition = {
 export type RecipeNutrition = {
   total: Nutrients;
   perServing: Nutrients;
+  knownCalories: { total: number | null; perServing: number | null; counted: number };
   items: IngredientNutrition[];
   counted: number;
   skipped: IngredientNutrition[];
@@ -424,8 +425,14 @@ export function calculateNutrition(
   });
 
   const total: Nutrients = { ...zero };
+  let knownCalories = 0;
+  let caloriesCounted = 0;
   for (const item of items) {
     if (!item.nutrients) continue; // Skipped items are explicitly listed in the panel.
+    if (item.nutrients.kcal !== null) {
+      knownCalories += item.nutrients.kcal;
+      caloriesCounted++;
+    }
     for (const key of Object.keys(total) as (keyof Nutrients)[]) {
       const running = total[key];
       const contribution = item.nutrients[key];
@@ -441,6 +448,11 @@ export function calculateNutrition(
   return {
     total,
     perServing,
+    knownCalories: {
+      total: caloriesCounted ? knownCalories : null,
+      perServing: caloriesCounted ? knownCalories / s : null,
+      counted: caloriesCounted,
+    },
     items,
     counted: items.filter((i) => i.nutrients).length,
     skipped: items.filter((i) => !i.nutrients),

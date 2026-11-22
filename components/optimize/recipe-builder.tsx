@@ -298,13 +298,16 @@ function RecipeBuilderPage() {
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat
                 icon={Flame}
-                label="Calories / serving"
+                label={nutrition.knownCalories.counted > 0 &&
+                  nutrition.knownCalories.counted < nutrition.items.length
+                  ? "Known calories / serving"
+                  : "Calories / serving"}
                 value={
                   !ingredients.length
                     ? "0 kcal"
-                    : nutrition.counted
-                      ? formatCalories(nutrition.perServing.kcal)
-                      : "–"
+                    : nutrition.knownCalories.perServing === null
+                      ? "Unavailable"
+                      : formatCalories(nutrition.knownCalories.perServing)
                 }
               />
               <Stat

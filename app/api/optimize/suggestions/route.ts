@@ -21,6 +21,15 @@ const columns = "fdc_id,description,kcal_per_100g,protein_per_100g,carbs_per_100
 
 type RecipeLine = { id: number; fdcId: number; amount: string; unit: string };
 
+class MissingCatalogMigrationError extends Error {}
+
+function catalogError(table: string, code: string) {
+  const message = `Couldn't read ${table}: ${code}`;
+  return code === "42703" || code === "PGRST204"
+    ? new MissingCatalogMigrationError(message)
+    : new Error(message);
+}
+
 function positiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
@@ -49,7 +58,7 @@ async function findOriginalFoods(db: SupabaseClient, ids: number[], signal: Abor
   const fdcIds = [...new Set(ids)];
   const groups = await Promise.all(catalogs.map(async ({ table, source }) => {
     const { data, error } = await db.from(table).select(columns).in("fdc_id", fdcIds).abortSignal(signal);
-    if (error) throw new Error(`Couldn't read ${table}: ${error.code}`);
+    if (error) throw catalogError(table, error.code);
     return data.map((food) => ({ ...food, source }));
   }));
   return new Map(groups.flat().map((food) => [food.fdc_id, food]));
@@ -74,7 +83,7 @@ async function findReplacements(
       .order("fdc_id")
       .limit(8)
       .abortSignal(signal);
-    if (error) throw new Error(`Couldn't search ${table}: ${error.code}`);
+    if (error) throw catalogError(table, error.code);
     return data.map((food) => ({ ...food, source }));
   }));
   return results.flat();
@@ -164,6 +173,11 @@ export async function POST(request: Request) {
     return Response.json({ swaps: selectVerifiedSwaps(choices, candidates) });
   } catch (error) {
     console.error("Optimizer suggestions failed", error instanceof Error ? error.message : "Unknown error");
+    if (error instanceof MissingCatalogMigrationError) {
+      return Response.json({
+        error: "The food database is missing its sugar and sodium update. Apply the catalog migration and try again.",
+      }, { status: 503 });
+    }
     return Response.json({ error: "I couldn’t check swaps right now. Try again in a moment." }, { status: 502 });
   }
 }

@@ -470,6 +470,9 @@ export function NutritionPanel({
 }) {
   const [scope, setScope] = useState<"serving" | "recipe">("serving");
   const n = scope === "serving" ? nutrition.perServing : nutrition.total;
+  const calories = scope === "serving" ? nutrition.knownCalories.perServing : nutrition.knownCalories.total;
+  const calorieCount = nutrition.knownCalories.counted;
+  const partialCalories = calorieCount > 0 && calorieCount < nutrition.items.length;
 
   // Share of calories from each macro (4/4/9 kcal per gram).
   const hasMacroSplit =
@@ -550,12 +553,20 @@ export function NutritionPanel({
           <>
             {/* Calories */}
             <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
-              <span className="text-lg font-bold">Calories</span>
-              <span className="font-display text-5xl leading-none tabular-nums">
-                {Math.round(n.kcal ?? 0)}
-                {n.kcal === null && <sup className="text-xs">†</sup>}
-              </span>
+              <span className="text-lg font-bold">{partialCalories ? "Known calories" : "Calories"}</span>
+              {calories === null && hasIngredients ? (
+                <span className="text-sm text-muted-foreground">Unavailable</span>
+              ) : (
+                <span className="font-display text-5xl leading-none tabular-nums">
+                  {Math.round(calories ?? 0)}
+                </span>
+              )}
             </div>
+            {partialCalories && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Calorie subtotal for {calorieCount} of {nutrition.items.length} ingredients.
+              </p>
+            )}
 
             {/* Macro split */}
             {hasMacroSplit && macroSum > 0 && (
