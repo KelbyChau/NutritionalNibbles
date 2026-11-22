@@ -146,9 +146,7 @@ export function parseLine(raw: string): ParsedLine {
   const size = text.match(/^(extra[- ]large|large|medium|small|jumbo)\s+/i);
   if (size && !unit) notes.push(`${size[1].toLowerCase()} size`);
 
-  let name = text
-    .replace(/\([^)]*\)/g, " ") // "(optional)", "(about 2 cups)"
-    .split(/,|;|\s+-\s+/)[0] // "onion, diced" → onion
+  let name = ingredientName(text)
     .replace(/\b(?:to taste|to serve|as needed|for (?:serving|garnish|frying|the pan|greasing)|plus\b.*|divided|optional|at room temperature|room temperature)\b.*$/i, "")
     .trim()
     // "butter or margarine" → butter; "sunflower or vegetable oil" → sunflower oil
@@ -179,8 +177,31 @@ const descriptive = new Set([
   "shredded", "packed", "lightly", "firmly", "cold", "warm", "hot", "room", "temperature", "kosher", "sea",
   "organic", "trimmed", "rinsed", "drained", "halved", "quartered", "crushed", "beaten", "sifted",
   "cut", "pieces", "piece", "inch", "bite", "sized", "size", "about", "plus", "more", "good", "quality",
-  "best", "pure", "natural", "your", "favorite", "store", "bought", "homemade", "uncooked", "dry", "boneless", "skinless",
+  "best", "pure", "natural", "your", "favorite", "store", "bought", "homemade", "uncooked", "dry", "torn",
 ]);
+
+const oppositeCut: Record<string, string> = {
+  boneless: "bonein", bonein: "boneless", skinless: "skinon", skinon: "skinless",
+};
+
+function cutDescription(text: string) {
+  const terms = words(text);
+  return terms.length > 0 && terms.every((term) => Object.hasOwn(oppositeCut, term));
+}
+
+function ingredientName(text: string) {
+  const parts = text
+    .replace(/\(([^)]*)\)/g, (_, note: string) => cutDescription(note) ? ` ${note} ` : " ")
+    .split(/;|\s+-\s+/)[0]
+    .split(",");
+  // Leading descriptors belong to the food ("boneless, skinless chicken breasts").
+  // After the food, retain cut details but drop instructions such as "finely chopped".
+  const foodIndex = parts.findIndex((part) => words(part).some(
+    (term) => !descriptive.has(term) && !Object.hasOwn(oppositeCut, term) && !prefixPreparations.has(term),
+  ));
+  if (foodIndex === -1) return parts[0];
+  return [...parts.slice(0, foodIndex + 1), ...parts.slice(foodIndex + 1).filter(cutDescription)].join(" ");
+}
 
 // Modifiers that make a *different* food when they don't match ("black pepper"
 // isn't bell pepper, "coconut milk" isn't milk). Words that appear anywhere in
@@ -194,8 +215,9 @@ const differentFood = new Set([
   "onion", "celery", "mustard", "brown", "light", "dark", "baking", "yeast", "gelatin", "imitation",
 ]);
 
-const cookedWords = ["cooked", "roasted", "boiled", "braised", "grilled", "fried", "baked", "steamed", "heated", "prepared", "broiled", "stewed"];
+const cookedWords = ["cooked", "roasted", "boiled", "braised", "grilled", "fried", "baked", "steamed", "heated", "prepared", "broiled", "stewed", "rotisserie"];
 const processedWords = ["dried", "frozen", "canned", "dehydrated", "powder", "pickled", "puffed", "flour", "juice", "breaded", "par", "commercial", "restaurant"];
+const prefixPreparations = new Set([...cookedWords, "raw", "frozen", "canned", "dried", "ground", "grated"]);
 // Mild preferences between otherwise equal catalog entries.
 const preferred: Record<string, number> = { raw: 1, unsalted: 0.5, skinless: 0.5, boneless: 0.5 };
 // What a recipe usually means by the plain word ("rice" → white rice).
@@ -207,11 +229,18 @@ const synonyms: Record<string, string> = {
   reggiano: "", evoo: "olive oil", ap: "all purpose", courgette: "zucchini", aubergine: "eggplant",
   capsicum: "bell pepper", coriander: "cilantro", prawns: "shrimp", prawn: "shrimp", yoghurt: "yogurt",
   catsup: "ketchup", chilli: "chili", mayo: "mayonnaise", spaghettini: "spaghetti", cremini: "crimini", portobello: "portabella",
-  basmati: "white long grain", jasmine: "white long grain",
+  basmati: "white long grain", jasmine: "white long grain", leaves: "leaf",
 };
 
 // Whole phrases recipe sites use for foods the USDA names differently.
 const phrases: [RegExp, string][] = [
+  [/\bbone[- ]in\b/g, "bonein"],
+  [/\bskin[- ]on\b/g, "skinon"],
+  [/\bwithout skin\b/g, "skinless"],
+  [/\bwith skin\b/g, "skinon"],
+  [/\bmeat and skin\b/g, "meat skin skinon"],
+  [/\bground ((?:black|white) pepper)\b/g, "$1"],
+  [/\b(basil|thyme|oregano|rosemary|sage|parsley|cilantro|mint) (?:leaf|leaves)\b/g, "$1"],
   [/\b(?:white|caster|castor|superfine|cane) sugar\b/g, "granulated sugar"],
   [/\bplain flour\b/g, "all-purpose flour"],
   [/\b(?:vegetable|cooking|neutral) oil\b/g, "canola oil"],
@@ -264,21 +293,25 @@ function indexFoods(foods: FoundationFood[]) {
 export function matchFood(name: string, foods: FoundationFood[]): FoodMatch {
   const { items, vocab } = indexFoods(foods);
   const all = words(name);
-  const wanted = all.filter((w) => !descriptive.has(w));
-  // Keep "boneless"/"skinless"/"dry" when they're what we matched on, but never require them.
-  const optional = new Set(all.filter((w) => descriptive.has(w)));
+  const cuts = all.filter((w) => Object.hasOwn(oppositeCut, w));
+  const optional = new Set(all.filter((w) => descriptive.has(w) || Object.hasOwn(oppositeCut, w)));
+  const wanted = all.filter((w) => !optional.has(w));
   if (!wanted.length || /^(?:ice )?water$|^ice$/.test(wanted.join(" "))) return { food: null, confidence: "none" };
   // In English the last word names the food ("chicken *broth*", "garlic *powder*").
   const key = wanted[wanted.length - 1];
+  const preferRawCut = cuts.length > 0 && !all.some((w) => cookedWords.includes(w));
 
   let best: { item: Indexed; score: number; missing: string[] } | null = null;
   for (const item of items) {
     if (!item.main.has(key)) continue;
+    if (cuts.some((cut) => item.tokens.has(oppositeCut[cut]))) continue;
     const missing = wanted.filter((w) => !item.tokens.has(w));
+    if (missing.length > 2 || missing.some((w) => differentFood.has(w) || vocab.has(w))) continue;
     const matched = wanted.length - missing.length + [...optional].filter((w) => item.tokens.has(w)).length;
     const extras = [...item.tokens].filter((t) => !wanted.includes(t) && !optional.has(t));
     let score = matched * 15 - extras.length * 1.2; // a matching word outweighs any penalty
     if (item.head.every((h) => wanted.includes(h))) score += 5;
+    if (preferRawCut && item.tokens.has("raw")) score += 5;
     if (usualKind[key] && item.tokens.has(usualKind[key])) score += 3;
     for (const t of extras) {
       if (cookedWords.includes(t) || processedWords.includes(t)) score -= 5;
@@ -293,8 +326,6 @@ export function matchFood(name: string, foods: FoundationFood[]): FoodMatch {
   const changed = [...best.item.tokens].some(
     (t) => (cookedWords.includes(t) || processedWords.includes(t)) && !all.includes(t),
   );
-  if (!best.missing.length) return { food: best.item.food, confidence: changed ? "check" : "sure" };
-  const harmless = best.missing.every((w) => !differentFood.has(w) && !vocab.has(w));
-  if (harmless && best.missing.length <= 2) return { food: best.item.food, confidence: "check" };
-  return { food: null, confidence: "none" };
+  const missingCut = cuts.some((cut) => !best.item.tokens.has(cut));
+  return { food: best.item.food, confidence: best.missing.length || changed || missingCut ? "check" : "sure" };
 }
