@@ -64,6 +64,7 @@ import {
   swapIngredient,
   type Change,
 } from "./changes";
+import { findIngredient, parseChatCommand } from "./chat/commands";
 
 type Action =
   | { type: "goal"; goal: GoalKey }
@@ -271,20 +272,6 @@ function OptimizeChatPage() {
     };
   }
 
-  function findIngredient(term: string) {
-    const t = term
-      .toLowerCase()
-      .replace(/^(the|my)\s+/, "")
-      .trim();
-    if (!t) return undefined;
-    const words = t.match(/[a-z0-9]+/g) ?? [];
-    return (
-      current.find((i) => i.name.toLowerCase().includes(t)) ??
-      current.find((i) =>
-        words.every((w) => i.food.description.toLowerCase().includes(w)),
-      )
-    );
-  }
 
   // echoUser: false when the user's message is already in the chat (the AI
   // path posts it first and falls back here). note is shown before the goal.
@@ -441,195 +428,161 @@ function OptimizeChatPage() {
   }
 
   function handle(text: string, picked?: Suggestion) {
+    const command = parseChatCommand(text);
+    if (!command) return;
     const t = text.trim();
-    if (!t) return;
-    let m: RegExpMatchArray | null;
-
-    if (/^undo$/i.test(t)) {
-      const prev = history[history.length - 1];
-      if (!prev)
-        return push(
-          { role: "user", text: t },
-          { role: "assistant", text: "Nothing to undo." },
-        );
-      setHistory((h) => h.slice(0, -1));
-      recipeRevision.current++;
-      setCurrent(prev);
-      return push(
+    const notFound = (term: string) =>
+      push(
         { role: "user", text: t },
-        { role: "assistant", text: "Undid the last change." },
+        { role: "assistant", text: `I don't see “${term}” in the recipe.` },
       );
-    }
 
-    if (/^(reset|start over|reset to the original)/i.test(t)) {
-      return commit(original, t, "Back to your original recipe.");
-    }
-
-    if (
-      (m = t.match(
-        /^(?:make it |set |change to )?(?:serves\s+)?(\d+)\s*servings?$|^serves\s+(\d+)$/i,
-      ))
-    ) {
-      const s = Math.min(24, Math.max(1, Number(m[1] ?? m[2])));
-      const prev = calculateNutrition(current, servings).perServing;
-      const after = calculateNutrition(current, s).perServing;
-      if (s !== servings) recipeRevision.current++;
-      setServings(s);
-      return push(
-        { role: "user", text: t },
-        {
-          role: "assistant",
-          text: `Now ${s} servings.\n${describeDelta(prev, after)}.`,
-        },
-      );
-    }
-
-    if ((m = t.match(/^(?:remove|delete|drop|take out)\s+(.+)$/i))) {
-      const hit = findIngredient(m[1]);
-      if (!hit)
-        return push(
-          { role: "user", text: t },
-          { role: "assistant", text: `I don't see “${m[1]}” in the recipe.` },
-        );
-      return commit(
-        current.filter((i) => i.id !== hit.id),
-        t,
-        `Removed ${lower(hit.name)}.`,
-      );
-    }
-
-    if (
-      (m = t.match(
-        /^(?:swap|replace|switch)\s+(.+?)\s+(?:for|with|to)\s+(.+)$/i,
-      ))
-    ) {
-      const hit = findIngredient(m[1]);
-      if (!hit)
-        return push(
-          { role: "user", text: t },
-          { role: "assistant", text: `I don't see “${m[1]}” in the recipe.` },
-        );
-      const rule = findSwapRule(hit.food.fdc_id);
-      let target: FoundationFood | undefined;
-      if (/^(something|a)\s+(lighter|healthier|leaner|better)/i.test(m[2])) {
-        target = rule && foods.find((f) => f.fdc_id === rule.to);
-        if (!target) {
+    switch (command.kind) {
+      case "undo": {
+        const prev = history[history.length - 1];
+        if (!prev)
           return push(
             { role: "user", text: t },
-            {
-              role: "assistant",
-              text: `I don't have a lighter swap for ${lower(hit.name)} yet. Name what you'd like instead, e.g. “swap ${lower(hit.name)} for …”.`,
-            },
+            { role: "assistant", text: "Nothing to undo." },
           );
-        }
-      } else {
-        target = exactFood(foods, m[2]) ?? foodSuggestions(foods, m[2])[0];
+        setHistory((h) => h.slice(0, -1));
+        recipeRevision.current++;
+        setCurrent(prev);
+        return push(
+          { role: "user", text: t },
+          { role: "assistant", text: "Undid the last change." },
+        );
       }
-      if (!target) {
+
+      case "reset":
+        return commit(original, t, "Back to your original recipe.");
+
+      case "servings": {
+        const s = command.servings;
+        const prev = calculateNutrition(current, servings).perServing;
+        const after = calculateNutrition(current, s).perServing;
+        if (s !== servings) recipeRevision.current++;
+        setServings(s);
         return push(
           { role: "user", text: t },
           {
             role: "assistant",
-            text: `I couldn't find “${m[2]}” in the USDA foods list. Try a simpler name, like “Greek yogurt”.`,
+            text: `Now ${s} servings.\n${describeDelta(prev, after)}.`,
           },
         );
       }
-      const factor = rule?.to === target.fdc_id ? rule.factor : undefined;
-      return commit(
-        swapIngredient(current, hit.id, target, factor),
-        t,
-        `Swapped ${lower(hit.name)} for ${lower(foodLabel(target.description))}.` +
-          (rule?.to === target.fdc_id ? `\n${rule.note}` : ""),
-      );
-    }
 
-    if (
-      (m = t.match(
-        /^(?:use\s+)?(?:(\d+)%\s+(less|more)|(half|double))\s+(?:the\s+|of\s+the\s+)?(.+)$/i,
-      ))
-    ) {
-      const hit = findIngredient(m[4]);
-      if (!hit)
-        return push(
-          { role: "user", text: t },
-          { role: "assistant", text: `I don't see “${m[4]}” in the recipe.` },
-        );
-      const factor = m[3]
-        ? m[3].toLowerCase() === "half"
-          ? 0.5
-          : 2
-        : 1 + (m[2].toLowerCase() === "less" ? -1 : 1) * (Number(m[1]) / 100);
-      if (factor <= 0)
+      case "remove": {
+        const hit = findIngredient(current, command.target);
+        if (!hit) return notFound(command.target);
         return commit(
           current.filter((i) => i.id !== hit.id),
           t,
           `Removed ${lower(hit.name)}.`,
         );
-      return commit(
-        scaleIngredient(current, hit.id, factor),
-        t,
-        `Changed ${lower(hit.name)}.`,
-      );
-    }
+      }
 
-    if (
-      (m = t.match(
-        /^(?:change|set|make)\s+(.+?)\s+to\s+(\d+(?:\.\d+)?|\d+\/\d+)\s*(g|kg|oz|lb|cups?|tbsp|tsp|ml|l)?$/i,
-      ))
-    ) {
-      const hit = findIngredient(m[1]);
-      if (!hit)
-        return push(
-          { role: "user", text: t },
-          { role: "assistant", text: `I don't see “${m[1]}” in the recipe.` },
-        );
-      const unit = m[3]
-        ? m[3].toLowerCase().replace(/^cups$/, "cup")
-        : hit.unit;
-      return commit(
-        current.map((i) =>
-          i.id === hit.id ? { ...i, amount: m![2], unit } : i,
-        ),
-        t,
-        `${hit.name} is now ${m[2]} ${unit}.`,
-      );
-    }
-
-    if (/^add\s+/i.test(t)) {
-      const raw = t.replace(/^add\s+/i, "");
-      const parsed = parseIngredient(raw);
-      const food =
-        picked?.food ??
-        (parsed &&
-          (exactFood(foods, parsed.name) ??
-            foodSuggestions(foods, parsed.name)[0]));
-      if (!parsed || !food) {
-        return push(
-          { role: "user", text: t },
-          {
-            role: "assistant",
-            text:
-              catalogStatus ||
-              "I couldn't find that in the USDA foods list. Pick one from the suggestions.",
-          },
+      case "swap": {
+        const hit = findIngredient(current, command.target);
+        if (!hit) return notFound(command.target);
+        const rule = findSwapRule(hit.food.fdc_id);
+        let target: FoundationFood | undefined;
+        if (command.lighter) {
+          target = rule && foods.find((f) => f.fdc_id === rule.to);
+          if (!target) {
+            return push(
+              { role: "user", text: t },
+              {
+                role: "assistant",
+                text: `I don't have a lighter swap for ${lower(hit.name)} yet. Name what you'd like instead, e.g. “swap ${lower(hit.name)} for …”.`,
+              },
+            );
+          }
+        } else {
+          target = exactFood(foods, command.replacement) ?? foodSuggestions(foods, command.replacement)[0];
+        }
+        if (!target) {
+          return push(
+            { role: "user", text: t },
+            {
+              role: "assistant",
+              text: `I couldn't find “${command.replacement}” in the USDA foods list. Try a simpler name, like “Greek yogurt”.`,
+            },
+          );
+        }
+        const factor = rule?.to === target.fdc_id ? rule.factor : undefined;
+        return commit(
+          swapIngredient(current, hit.id, target, factor),
+          t,
+          `Swapped ${lower(hit.name)} for ${lower(foodLabel(target.description))}.` +
+            (rule?.to === target.fdc_id ? `\n${rule.note}` : ""),
         );
       }
-      const existing = ingredientWithFood(current, food);
-      if (existing) {
-        return push(
-          { role: "user", text: t },
-          {
-            role: "assistant",
-            text: `${alreadyAddedMessage(existing)} For example: “change ${lower(existing.name)} to 200 g”.`,
-          },
+
+      case "scale": {
+        const hit = findIngredient(current, command.target);
+        if (!hit) return notFound(command.target);
+        if (command.factor <= 0)
+          return commit(
+            current.filter((i) => i.id !== hit.id),
+            t,
+            `Removed ${lower(hit.name)}.`,
+          );
+        return commit(
+          scaleIngredient(current, hit.id, command.factor),
+          t,
+          `Changed ${lower(hit.name)}.`,
         );
       }
-      const ing = makeIngredient(food, parsed, nextId.current++);
-      return commit(
-        [...current, ing],
-        t,
-        `Added ${ing.amount} ${ing.unit} ${lower(ing.name)}.`,
-      );
+
+      case "setAmount": {
+        const hit = findIngredient(current, command.target);
+        if (!hit) return notFound(command.target);
+        const unit = command.unit ?? hit.unit;
+        return commit(
+          current.map((i) =>
+            i.id === hit.id ? { ...i, amount: command.amount, unit } : i,
+          ),
+          t,
+          `${hit.name} is now ${command.amount} ${unit}.`,
+        );
+      }
+
+      case "add": {
+        const parsed = parseIngredient(command.text);
+        const food =
+          picked?.food ??
+          (parsed &&
+            (exactFood(foods, parsed.name) ??
+              foodSuggestions(foods, parsed.name)[0]));
+        if (!parsed || !food) {
+          return push(
+            { role: "user", text: t },
+            {
+              role: "assistant",
+              text:
+                catalogStatus ||
+                "I couldn't find that in the USDA foods list. Pick one from the suggestions.",
+            },
+          );
+        }
+        const existing = ingredientWithFood(current, food);
+        if (existing) {
+          return push(
+            { role: "user", text: t },
+            {
+              role: "assistant",
+              text: `${alreadyAddedMessage(existing)} For example: “change ${lower(existing.name)} to 200 g”.`,
+            },
+          );
+        }
+        const ing = makeIngredient(food, parsed, nextId.current++);
+        return commit(
+          [...current, ing],
+          t,
+          `Added ${ing.amount} ${ing.unit} ${lower(ing.name)}.`,
+        );
+      }
     }
 
     const asked = promptGoals(t);
