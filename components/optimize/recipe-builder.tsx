@@ -298,23 +298,29 @@ function RecipeBuilderPage() {
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat
                 icon={Flame}
-                label="Calories / serving"
+                label={nutrition.knownCalories.counted > 0 &&
+                  nutrition.knownCalories.counted < nutrition.items.length
+                  ? "Known calories / serving"
+                  : "Calories / serving"}
                 value={
                   !ingredients.length
                     ? "0 kcal"
-                    : nutrition.counted
-                      ? formatCalories(nutrition.perServing.kcal)
-                      : "–"
+                    : nutrition.knownCalories.perServing === null
+                      ? "Unavailable"
+                      : formatCalories(nutrition.knownCalories.perServing)
                 }
               />
               <Stat
                 icon={Dumbbell}
-                label="Protein / serving"
+                label={nutrition.known.counted.protein > 0 &&
+                  nutrition.known.counted.protein < nutrition.items.length
+                  ? "Known protein / serving"
+                  : "Protein / serving"}
                 value={
                   !ingredients.length
                     ? "0 g"
                     : nutrition.counted
-                      ? fmtNutrient(nutrition.perServing.protein, "g")
+                      ? fmtNutrient(nutrition.known.perServing.protein, "g")
                       : "–"
                 }
               />

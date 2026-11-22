@@ -91,8 +91,6 @@ export const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
 
 // ---- USDA catalog ------------------------------------------------------------
 
-const FOOD_COLUMNS =
-  "fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g";
 const PAGE = 1000; // Supabase returns at most 1,000 rows per request
 
 // Every USDA food the app can use, from both catalogs: Foundation Foods
@@ -108,7 +106,7 @@ export function useUsdaFoods() {
       try {
         const supabase = createClient();
         const [foundation, legacyCount] = await Promise.all([
-          supabase.from("foundation_foods").select(FOOD_COLUMNS).order("fdc_id"),
+          supabase.from("foundation_foods").select().order("fdc_id"),
           supabase.from("sr_legacy_foods").select("fdc_id", { count: "exact", head: true }),
         ]);
         if (foundation.error || !foundation.data?.length || legacyCount.error)
@@ -117,7 +115,7 @@ export function useUsdaFoods() {
           Array.from({ length: Math.ceil((legacyCount.count ?? 0) / PAGE) }, (_, i) =>
             supabase
               .from("sr_legacy_foods")
-              .select(FOOD_COLUMNS)
+              .select()
               .order("fdc_id")
               .range(i * PAGE, (i + 1) * PAGE - 1),
           ),
@@ -471,7 +469,13 @@ export function NutritionPanel({
   showZeros?: boolean;
 }) {
   const [scope, setScope] = useState<"serving" | "recipe">("serving");
-  const n = scope === "serving" ? nutrition.perServing : nutrition.total;
+  // Subtotals over the ingredients that have data, marked † when some don't.
+  const n = scope === "serving" ? nutrition.known.perServing : nutrition.known.total;
+  const partial = (key: keyof Nutrients) =>
+    n[key] === null || nutrition.known.counted[key] < nutrition.counted;
+  const calories = scope === "serving" ? nutrition.knownCalories.perServing : nutrition.knownCalories.total;
+  const calorieCount = nutrition.knownCalories.counted;
+  const partialCalories = calorieCount > 0 && calorieCount < nutrition.items.length;
 
   // Share of calories from each macro (4/4/9 kcal per gram).
   const hasMacroSplit =
@@ -552,12 +556,20 @@ export function NutritionPanel({
           <>
             {/* Calories */}
             <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
-              <span className="text-lg font-bold">Calories</span>
-              <span className="font-display text-5xl leading-none tabular-nums">
-                {Math.round(n.kcal ?? 0)}
-                {n.kcal === null && <sup className="text-xs">†</sup>}
-              </span>
+              <span className="text-lg font-bold">{partialCalories ? "Known calories" : "Calories"}</span>
+              {calories === null && hasIngredients ? (
+                <span className="text-sm text-muted-foreground">Unavailable</span>
+              ) : (
+                <span className="font-display text-5xl leading-none tabular-nums">
+                  {Math.round(calories ?? 0)}
+                </span>
+              )}
             </div>
+            {partialCalories && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Calorie subtotal for {calorieCount} of {nutrition.items.length} ingredients.
+              </p>
+            )}
 
             {/* Macro split */}
             {hasMacroSplit && macroSum > 0 && (
@@ -607,7 +619,7 @@ export function NutritionPanel({
                       </span>{" "}
                       <span className="tabular-nums">
                         {fmtNutrient(value ?? 0, row.unit)}
-                        {value === null && <sup>†</sup>}
+                        {partial(row.key) && <sup>†</sup>}
                       </span>
                     </dt>
                     <dd className="font-semibold tabular-nums">
@@ -671,8 +683,9 @@ export function NutritionPanel({
         )}
 
         <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
-          * % Daily Value is based on a 2,000-calorie diet. † Zero is a
-          placeholder where nutrition data is unavailable.
+          * % Daily Value is based on a 2,000-calorie diet. † Some ingredients
+          have no USDA data for this nutrient, so it counts only the ones that
+          do (0 when none do).
         </p>
       </div>
     </section>
