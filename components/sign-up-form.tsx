@@ -40,15 +40,38 @@ export function SignUpForm({
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/protected`,
-        },
-      });
-      if (error) throw error;
-      router.push("/auth/sign-up-success");
+      const emailRedirectTo = `${window.location.origin}/dashboard`;
+      const { data: current } = await supabase.auth.getSession();
+      let signedIn: boolean;
+      if (current.session?.user.is_anonymous) {
+        // Saving a recipe signs guests in anonymously (lib/my-recipes.ts).
+        // Add the email and password to that guest account instead of making
+        // a new one, so the recipes they already saved stay theirs.
+        const { data, error } = await supabase.auth.updateUser(
+          { email, password },
+          { emailRedirectTo },
+        );
+        if (error) throw error;
+        // When Supabase asks for email confirmation, the new email waits
+        // in new_email until the link is clicked.
+        signedIn = data.user.email === email;
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo },
+        });
+        if (error) throw error;
+        signedIn = data.session !== null;
+      }
+      // The database adds the user's row to public.profiles on its own
+      // (supabase/migrations/20261122130000_user_profiles.sql).
+      if (signedIn) {
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        router.push("/auth/sign-up-success");
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
