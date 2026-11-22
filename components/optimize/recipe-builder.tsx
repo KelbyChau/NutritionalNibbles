@@ -1,93 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUp,
-  Droplet,
   Dumbbell,
   Flame,
+  Import,
   LayoutGrid,
   Minus,
   Plus,
-  Sparkles,
-  Target,
-  TriangleAlert,
-  Users,
+  UtensilsCrossed,
   WandSparkles,
-  Wheat,
+  Users,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import {
-  formatAmount,
-  lookupIngredient,
-  parseIngredient,
-  type IngredientInfo,
-} from "@/lib/ingredients";
-import {
-  calculateNutrition,
-  dailyValues,
-  type Nutrients,
-  type RecipeNutrition,
-} from "@/lib/nutrition";
-import { createClient } from "@/lib/supabase/client";
-import { exactFood, foodLabel, foodSuggestions, type FoundationFood } from "@/lib/foundation-foods";
+import { parseIngredient } from "@/lib/ingredients";
+import { calculateNutrition } from "@/lib/nutrition";
+import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
-
-type GoalKey = "protein" | "calories" | "carbs" | "fat";
-
-const goals: {
-  key: GoalKey;
-  label: string;
-  phrase: string;
-  icon: LucideIcon;
-  color: string;
-  words: RegExp;
-}[] = [
-  {
-    key: "protein",
-    label: "Higher protein",
-    phrase: "higher protein",
-    icon: Dumbbell,
-    color: "text-macro-protein",
-    words: /protein/i,
-  },
-  {
-    key: "calories",
-    label: "Lower calorie",
-    phrase: "lower calorie",
-    icon: Flame,
-    color: "text-macro-fat",
-    words: /calori|kcal|lighter/i,
-  },
-  {
-    key: "carbs",
-    label: "Lower carb",
-    phrase: "lower carb",
-    icon: Wheat,
-    color: "text-macro-carbs",
-    words: /carb|keto/i,
-  },
-  {
-    key: "fat",
-    label: "Lower fat",
-    phrase: "lower fat",
-    icon: Droplet,
-    color: "text-macro-fat",
-    words: /\bfat\b/i,
-  },
-];
-
-type Ingredient = IngredientInfo & { food: FoundationFood; id: number; amount: string; unit: string };
-type Message = { id: number; role: "user" | "assistant"; text: string };
-type Suggestion = { food?: FoundationFood; text: string; icon: LucideIcon; iconClass?: string };
-
-// The landing page's butter yellow, fixed so it reads the same in both themes.
-const BUTTER = "bg-[hsl(45_84%_72%)]";
-const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
+import {
+  BUTTER,
+  Combobox,
+  IngredientArt,
+  NutritionPanel,
+  Stat,
+  fmtNutrient,
+  formatCalories,
+  ingredientOptions,
+  loadDraft,
+  makeIngredient,
+  saveDraft,
+  useFoundationFoods,
+  type Ingredient,
+} from "./shared";
 
 // Where ingredient art sits on the stage, in % of the stage box. The first
 // ingredient takes the big center spot; the rest scatter around it.
@@ -103,15 +51,38 @@ const spots = [
   { left: 90, top: 50, size: 4.5 },
 ];
 
+// Dummy recipe shown in the nutrition panel while the ingredient list is
+// empty. Set SHOW_SAMPLE_NUTRITION to false to turn it off.
+const SHOW_SAMPLE_NUTRITION = false;
+const sampleIngredients = [
+  { name: "Chicken breast", amount: "400", unit: "g" },
+  { name: "Pasta", amount: "200", unit: "g" },
+  { name: "Heavy cream", amount: "1/2", unit: "cup" },
+  { name: "Parmesan", amount: "1/2", unit: "cup" },
+  { name: "Butter", amount: "1", unit: "tbsp" },
+  { name: "Garlic", amount: "3", unit: "clove" },
+  { name: "Broccoli", amount: "2", unit: "cup" },
+  { name: "Salt", amount: "", unit: "" },
+];
+
 export function RecipeBuilder() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
-  const [goal, setGoal] = useState<GoalKey | null>(null);
   const [servings, setServings] = useState(2);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
   const nextId = useRef(1);
+  const { foods, status: catalogStatus, retry } = useFoundationFoods();
 
-  const goalInfo = goals.find((g) => g.key === goal) ?? null;
+  // Coming back from the chat page: pick up the recipe where it was left.
+  useEffect(() => {
+    const draft = loadDraft();
+    if (!draft) return;
+    setTitle(draft.title);
+    setServings(draft.servings);
+    setIngredients(draft.current);
+    nextId.current = Math.max(0, ...draft.current.map((i) => i.id)) + 1;
+  }, []);
+
   const realNutrition = useMemo(
     () => calculateNutrition(ingredients, servings),
     [ingredients, servings],
@@ -124,122 +95,29 @@ export function RecipeBuilder() {
   );
   const nutrition = isSample ? sampleNutrition : realNutrition;
 
-  const [foods, setFoods] = useState<FoundationFood[]>([]);
-  const [catalogStatus, setCatalogStatus] = useState("Loading USDA ingredients…");
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let current = true;
-    async function load() {
-      try {
-        const { data, error } = await createClient().from("foundation_foods")
-          .select("fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g")
-          .order("fdc_id");
-        if (error || !data?.length) throw new Error("Catalog unavailable");
-        if (current) { setFoods(data); setCatalogStatus(""); }
-      } catch {
-        if (current) setCatalogStatus("Couldn’t load USDA ingredients.");
-      }
-    }
-    void load();
-    return () => { current = false; };
-  }, [attempt]);
-
-  function addFood(food: FoundationFood, parsed: { amount: string; unit: string }) {
-    const ingredient = {
-      ...lookupIngredient(foodLabel(food.description)), name: foodLabel(food.description), food, id: nextId.current++,
-      amount: parsed.amount || (parsed.unit ? "" : "100"),
-      unit: parsed.amount || parsed.unit ? parsed.unit : "g",
-    };
-    setIngredients(list => [...list, ingredient]);
-    return ingredient;
+  function addFood(
+    food: FoundationFood,
+    parsed: { amount: string; unit: string },
+  ) {
+    setIngredients((list) => [
+      ...list,
+      makeIngredient(food, parsed, nextId.current++),
+    ]);
   }
 
   function removeIngredient(id: number) {
     setIngredients((list) => list.filter((i) => i.id !== id));
   }
 
-  function say(user: string, reply: string) {
-    setMessages((m) => [
-      ...m,
-      { id: nextId.current++, role: "user", text: user },
-      { id: nextId.current++, role: "assistant", text: reply },
-    ]);
-  }
-
-  // Chat commands are handled here. Anything that needs the real optimizer
-  // gets a placeholder reply until that backend exists.
-  function handleChat(text: string, picked?: Suggestion) {
-    const t = text.trim();
-    if (!t) return;
-
-    const remove = t.match(/^(?:remove|delete|drop)\s+(.+)$/i);
-    if (remove) {
-      const term = remove[1].toLowerCase();
-      const hit = ingredients.find((i) => i.name.toLowerCase().includes(term));
-      if (hit) {
-        removeIngredient(hit.id);
-        return say(t, `Removed ${hit.name.toLowerCase()}.`);
-      }
-      return say(t, `I don't see "${remove[1]}" in your ingredients.`);
-    }
-
-    const mentionedGoal = goals.find((g) => g.words.test(t));
-    if (
-      mentionedGoal &&
-      /\b(make|higher|lower|more|less|fewer|goal|cut)\b/i.test(t)
-    ) {
-      setGoal(mentionedGoal.key);
-      return say(
-        t,
-        `Goal set: ${mentionedGoal.phrase}.` +
-          (ingredients.length
-            ? " Press Optimize when your ingredient list is ready."
-            : " Now add your ingredients, e.g. “add 200g chicken breast”."),
-      );
-    }
-
-    if (/^swap\b/i.test(t)) {
-      return say(
-        t,
-        "Noted. Swap suggestions will come from the optimizer, which isn't connected yet.",
-      );
-    }
-
-    if (/^add\s+/i.test(t) || /^\d/.test(t)) {
-      if (catalogStatus) return say(t, catalogStatus);
-      const raw = t.replace(/^add\s+/i, "");
-      const parsed = parseIngredient(raw);
-      const whole = picked?.food ?? (parsed && exactFood(foods, parsed.name));
-      const parts = whole ? [raw] : raw.split(/,|\band\b/i);
-      const resolved = parts.map(part => {
-        const input = parseIngredient(part);
-        const food = whole ?? (input && exactFood(foods, input.name));
-        return input && food ? { input, food } : null;
-      });
-      if (resolved.some(item => !item)) {
-        return say(t, "Choose a matching USDA food from the suggestions to add it.");
-      }
-      const added = resolved.flatMap(item => item ? [addFood(item.food, item.input)] : []);
-      return say(t, `Added ${added.map(item => formatAmount(item) + " " + item.name).join(", ")}.`);
-    }
-
-    say(t, summary());
-  }
-
-  function summary() {
-    const missing: string[] = [];
-    if (!ingredients.length) missing.push("add some ingredients");
-    if (!goalInfo) missing.push("pick a goal");
-    if (missing.length) return `To get started, ${missing.join(" and ")}.`;
-    const per = realNutrition.perServing;
-    return `${ingredients.length} ingredients, ${servings} servings, ${realNutrition.counted ? `estimated nutrition per serving: ${formatCalories(per.kcal)}, ${fmtNutrient(per.protein, "g")} protein` : "enter ingredient weights to estimate nutrition"}. Goal: ${goalInfo!.phrase}. (The optimizer isn't connected yet, so this is a placeholder reply.)`;
-  }
-
   function optimize() {
-    say(
-      `Optimize${title ? ` ${title}` : " my recipe"}${goalInfo ? ` for ${goalInfo.phrase}` : ""}`,
-      summary(),
-    );
+    if (!ingredients.length) return;
+    saveDraft({
+      title,
+      servings,
+      original: ingredients,
+      current: ingredients,
+    });
+    router.push("/optimize/chat");
   }
 
   return (
@@ -263,11 +141,21 @@ export function RecipeBuilder() {
           <LayoutGrid className="size-4" />
           <span className="hidden sm:inline">Dashboard</span>
         </Link>
+        {/* UI only for now: no import behavior yet. */}
+        <button
+          type="button"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
+        >
+          <Import className="size-4" />
+          <span className="hidden sm:inline">Import</span>
+        </button>
         <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
           <ThemeSwitcher />
         </div>
         <Button
           onClick={optimize}
+          disabled={!ingredients.length}
+          title={ingredients.length ? undefined : "Add ingredients first"}
           className="h-11 rounded-full px-5 shadow-none"
         >
           <WandSparkles />
@@ -276,32 +164,8 @@ export function RecipeBuilder() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 px-4 pb-5 pt-4 sm:px-6 lg:px-8 xl:flex-row xl:gap-6">
-        {/* Stage + stats + chat */}
+        {/* Stage + stats */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center gap-2">
-            {goals.map((g) => {
-              const Icon = g.icon;
-              const on = goal === g.key;
-              return (
-                <button
-                  key={g.key}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setGoal(on ? null : g.key)}
-                  className={cn(
-                    "inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors",
-                    on
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card hover:border-foreground/40",
-                  )}
-                >
-                  <Icon className={cn("size-4", !on && g.color)} />
-                  {g.label}
-                </button>
-              );
-            })}
-          </div>
-
           <Stage title={title} onTitle={setTitle} ingredients={ingredients} />
 
           <div className="surface-paper rounded-3xl bg-card p-4 shadow-[0_24px_48px_-32px_hsl(230_60%_15%/0.45)] sm:px-6">
@@ -310,18 +174,22 @@ export function RecipeBuilder() {
                 icon={Flame}
                 label="Calories / serving"
                 value={
-                  nutrition.counted
-                    ? formatCalories(nutrition.perServing.kcal)
-                    : "–"
+                  !ingredients.length
+                    ? "0 kcal"
+                    : nutrition.counted
+                      ? formatCalories(nutrition.perServing.kcal)
+                      : "–"
                 }
               />
               <Stat
                 icon={Dumbbell}
                 label="Protein / serving"
                 value={
-                  nutrition.counted
-                    ? fmtNutrient(nutrition.perServing.protein, "g")
-                    : "–"
+                  !ingredients.length
+                    ? "0 g"
+                    : nutrition.counted
+                      ? fmtNutrient(nutrition.perServing.protein, "g")
+                      : "–"
                 }
               />
               <div className="flex items-center gap-3">
@@ -352,20 +220,12 @@ export function RecipeBuilder() {
                 </div>
               </div>
               <Stat
-                icon={goalInfo?.icon ?? Target}
-                label="Goal"
-                value={goalInfo?.label ?? "Pick one"}
-                muted={!goalInfo}
+                icon={UtensilsCrossed}
+                label="Ingredients"
+                value={`${ingredients.length}`}
               />
             </dl>
           </div>
-
-          <ChatBar
-            foods={foods}
-            messages={messages}
-            ingredients={ingredients}
-            onSend={handleChat}
-          />
         </section>
 
         {/* Ingredient list */}
@@ -374,11 +234,16 @@ export function RecipeBuilder() {
           className="flex min-h-0 shrink-0 flex-col xl:w-[20rem] 2xl:w-[23rem]"
         >
           <AddIngredient foods={foods} onAdd={addFood} />
-          {catalogStatus && <p role="status" className="mt-2 text-sm">{catalogStatus}{" "}
-            {catalogStatus.startsWith("Couldn’t") && <button type="button" className="underline" onClick={() => {
-              setCatalogStatus("Loading USDA ingredients…"); setAttempt(n => n + 1);
-            }}>Retry</button>}
-          </p>}
+          {catalogStatus && (
+            <p role="status" className="mt-2 text-sm">
+              {catalogStatus}{" "}
+              {catalogStatus.startsWith("Couldn’t") && (
+                <button type="button" className="underline" onClick={retry}>
+                  Retry
+                </button>
+              )}
+            </p>
+          )}
           <p className="mb-3 mt-4 text-sm text-muted-foreground">
             {ingredients.length
               ? `${ingredients.length} ${ingredients.length === 1 ? "ingredient" : "ingredients"}`
@@ -389,18 +254,17 @@ export function RecipeBuilder() {
               <li key={i.id}>
                 <IngredientCard
                   ingredient={i}
-                  onAmountChange={(amount) => setIngredients((list) =>
-                    list.map((item) => item.id === i.id ? { ...item, amount } : item)
-                  )}
+                  onAmountChange={(amount) =>
+                    setIngredients((list) =>
+                      list.map((item) =>
+                        item.id === i.id ? { ...item, amount } : item,
+                      ),
+                    )
+                  }
                   onRemove={() => removeIngredient(i.id)}
                 />
               </li>
             ))}
-            {!ingredients.length && (
-              <li className="rounded-3xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-                Search for a USDA ingredient, such as “200g grape tomato”, and choose a match.
-              </li>
-            )}
           </ul>
         </aside>
 
@@ -413,6 +277,7 @@ export function RecipeBuilder() {
             nutrition={nutrition}
             servings={servings}
             hasIngredients={isSample || ingredients.length > 0}
+            showZeros
             isSample={isSample}
           />
         </aside>
@@ -421,7 +286,7 @@ export function RecipeBuilder() {
   );
 }
 
-// ---- Stage ---------------------------------------------------------------
+// ---- Stage -------------------------------------------------------------------
 
 function Stage({
   title,
@@ -434,7 +299,7 @@ function Stage({
 }) {
   const shown = ingredients.slice(0, spots.length);
   return (
-    <div className="relative my-4 min-h-[20rem] flex-1">
+    <div className="relative mb-4 min-h-[20rem] flex-1">
       <input
         value={title}
         onChange={(e) => onTitle(e.target.value)}
@@ -494,70 +359,7 @@ function Stage({
   );
 }
 
-function IngredientArt({
-  ingredient,
-  sizeRem,
-  className,
-}: {
-  ingredient: IngredientInfo;
-  sizeRem: number;
-  className?: string;
-}) {
-  if (ingredient.image) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- local cut-out PNGs, sized by the stage
-      <img
-        src={ingredient.image}
-        alt={ingredient.name}
-        style={{ width: `${sizeRem}rem`, height: `${sizeRem}rem` }}
-        className={cn("object-contain", className)}
-      />
-    );
-  }
-  return (
-    <span
-      role="img"
-      aria-label={ingredient.name}
-      style={{ fontSize: `${sizeRem * 0.8}rem`, lineHeight: 1 }}
-      className={cn("block select-none", className)}
-    >
-      {ingredient.emoji}
-    </span>
-  );
-}
-
-function Stat({
-  icon: Icon,
-  label,
-  value,
-  muted,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  muted?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
-        <Icon className="size-4" />
-      </span>
-      <div className="flex min-w-0 flex-col-reverse">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd
-          className={cn(
-            "truncate font-semibold tabular-nums",
-            muted && "font-normal text-muted-foreground",
-          )}
-        >
-          {value}
-        </dd>
-      </div>
-    </div>
-  );
-}
-
-// ---- Ingredient list -----------------------------------------------------
+// ---- Ingredient list -----------------------------------------------------------
 
 function IngredientCard({
   ingredient,
@@ -568,13 +370,29 @@ function IngredientCard({
   onAmountChange: (amount: string) => void;
   onRemove: () => void;
 }) {
+  // USDA names look like "Chicken Breast (breast, boneless, skinless, raw)":
+  // show the main name large and the details small underneath.
+  const match = ingredient.name.match(/^(.*?)\s*\((.*)\)$/);
+  const heading = match ? match[1] : ingredient.name;
+  const details = match ? match[2] : "";
+
   return (
-    <article className="relative flex h-28 overflow-hidden rounded-3xl border border-border bg-card animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="flex min-w-0 flex-1 flex-col justify-center p-4 pr-2">
-        <h3 className="line-clamp-2 font-display text-2xl leading-[1.05] tracking-tight">
-          {ingredient.name}
-        </h3>
-        <label className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+    <article className="relative flex min-h-28 overflow-hidden rounded-3xl border border-border bg-card duration-300 animate-in fade-in slide-in-from-right-4">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 p-4 pr-3">
+        <div className="min-w-0">
+          <h3
+            title={ingredient.name}
+            className="break-words font-display text-2xl leading-tight tracking-tight"
+          >
+            {heading}
+          </h3>
+          {details && (
+            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
+              {details}
+            </p>
+          )}
+        </div>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             aria-label={`Amount of ${ingredient.name} in ${ingredient.unit || "pieces"}`}
             className="w-16 rounded border border-border bg-background px-2 py-1 text-foreground"
@@ -584,17 +402,20 @@ function IngredientCard({
           {ingredient.unit || "pieces"}
         </label>
       </div>
-      <div
-        className={cn(
-          "relative mr-[-1.5rem] flex aspect-square h-full shrink-0 items-center justify-center rounded-full",
-          BUTTER,
-        )}
-      >
-        <IngredientArt
-          ingredient={ingredient}
-          sizeRem={3.5}
-          className="-ml-4"
-        />
+      {/* Picture column: the text never runs under it or the × button */}
+      <div className="relative w-24 shrink-0">
+        <div
+          className={cn(
+            "absolute -right-6 top-1/2 flex size-28 -translate-y-1/2 items-center justify-center rounded-full",
+            BUTTER,
+          )}
+        >
+          <IngredientArt
+            ingredient={ingredient}
+            sizeRem={3.5}
+            className="-ml-4"
+          />
+        </div>
       </div>
       <button
         type="button"
@@ -608,19 +429,15 @@ function IngredientCard({
   );
 }
 
-function ingredientOptions(text: string, foods: FoundationFood[]) {
-  const parsed = parseIngredient(text);
-  if (!parsed) return [];
-  return foodSuggestions(foods, parsed.name).map(food => ({
-    food,
-    text: [parsed.amount, parsed.unit, foodLabel(food.description)].filter(Boolean).join(" "),
-    emoji: lookupIngredient(foodLabel(food.description)).emoji,
-  }));
-}
-
-function AddIngredient({ foods, onAdd }: {
+function AddIngredient({
+  foods,
+  onAdd,
+}: {
   foods: FoundationFood[];
-  onAdd: (food: FoundationFood, parsed: { amount: string; unit: string }) => void;
+  onAdd: (
+    food: FoundationFood,
+    parsed: { amount: string; unit: string },
+  ) => void;
 }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
@@ -629,7 +446,11 @@ function AddIngredient({ foods, onAdd }: {
     const parsed = parseIngredient(text);
     const food = option?.food ?? (parsed && exactFood(foods, parsed.name));
     if (!parsed || !food) {
-      setError(options.length ? "Choose a USDA food from the suggestions." : "No matching USDA food. Try another ingredient.");
+      setError(
+        options.length
+          ? "Choose a USDA food from the suggestions."
+          : "No matching USDA food. Try another ingredient.",
+      );
       return;
     }
     onAdd(food, parsed);
@@ -648,7 +469,7 @@ function AddIngredient({ foods, onAdd }: {
       options={options}
       renderIcon={(o) => (
         <span className="text-lg leading-none" aria-hidden>
-          {(o as (typeof options)[number]).emoji}
+          {o.emoji}
         </span>
       )}
       placeholder="Add an ingredient, e.g. 200g chicken"
@@ -658,534 +479,4 @@ function AddIngredient({ foods, onAdd }: {
       listPosition="below"
     />
   );
-}
-
-// ---- Chat ----------------------------------------------------------------
-
-function ChatBar({
-  foods,
-  messages,
-  ingredients,
-  onSend,
-}: {
-  foods: FoundationFood[];
-  messages: Message[];
-  ingredients: Ingredient[];
-  onSend: (text: string, option?: Suggestion) => void;
-}) {
-  const [value, setValue] = useState("");
-  const logRef = useRef<HTMLOListElement>(null);
-
-  useEffect(() => {
-    const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
-
-  const options = useMemo(
-    () => chatSuggestions(value, ingredients, foods),
-    [value, ingredients, foods],
-  );
-
-  return (
-    <div className="mx-auto mt-4 w-full max-w-3xl">
-      {messages.length > 0 && (
-        <ol
-          ref={logRef}
-          aria-live="polite"
-          className="mb-2 flex max-h-32 flex-col gap-2 overflow-y-auto px-1"
-        >
-          {messages.map((m) => (
-            <li
-              key={m.id}
-              className={cn(
-                "flex",
-                m.role === "user" ? "justify-end" : "justify-start",
-              )}
-            >
-              <p
-                className={cn(
-                  "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-snug",
-                  m.role === "user"
-                    ? "rounded-br-md bg-primary text-primary-foreground"
-                    : "rounded-bl-md border border-border bg-card",
-                )}
-              >
-                {m.text}
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
-      <Combobox
-        value={value}
-        onChange={setValue}
-        onSubmit={(t, option) => {
-          onSend(t, option);
-          setValue("");
-        }}
-        options={options}
-        renderIcon={(o) => (
-          <o.icon className={cn("size-4", (o as Suggestion).iconClass)} />
-        )}
-        placeholder="Ask anything: “make it higher protein”, “add 2 eggs”…"
-        label="Chat with the recipe assistant"
-        leading={<Sparkles className="size-4 text-primary" />}
-        sendButton
-        listPosition="above"
-      />
-    </div>
-  );
-}
-
-function chatSuggestions(raw: string, ingredients: Ingredient[], foods: FoundationFood[]): Suggestion[] {
-  const q = raw.trim();
-  if (!q) return [];
-  const lower = q.toLowerCase();
-  const out: Suggestion[] = [];
-
-  // "add …" or a leading amount: complete the ingredient name.
-  if (/^(a|ad|add)\b/i.test(q) || /^\d/.test(q)) {
-    for (const option of ingredientOptions(q.replace(/^add\s*/i, ""), foods)) {
-      out.push({ text: "Add " + option.text, food: option.food, icon: Plus });
-    }
-  }
-
-  // Goal prompts, plus remove/swap for ingredients already in the list.
-  const actions: Suggestion[] = [
-    ...goals.map((g) => ({
-      text: `Make it ${g.phrase}`,
-      icon: g.icon,
-      iconClass: g.color,
-    })),
-    ...ingredients.flatMap((i) => [
-      {
-        text: `Swap ${i.name.toLowerCase()} for something lighter`,
-        icon: WandSparkles,
-        iconClass: "text-primary",
-      },
-      { text: `Remove ${i.name.toLowerCase()}`, icon: X },
-    ]),
-  ];
-  const tokens = lower.split(/\s+/).filter(Boolean);
-  for (const a of actions) {
-    const words = a.text.toLowerCase().split(/\s+/);
-    if (
-      a.text.toLowerCase() !== lower &&
-      tokens.every((t) => words.some((w) => w.startsWith(t)))
-    )
-      out.push(a);
-  }
-
-  return out.slice(0, 6);
-}
-
-// ---- Shared combobox (input + suggestion popup) ---------------------------
-
-function Combobox<T extends { text: string; icon?: LucideIcon; food?: FoundationFood }>({
-  value,
-  onChange,
-  onSubmit,
-  options,
-  renderIcon,
-  placeholder,
-  label,
-  leading,
-  sendButton,
-  error,
-  listPosition,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSubmit: (text: string, option?: T) => void;
-  options: T[];
-  renderIcon: (o: T) => React.ReactNode;
-  placeholder: string;
-  label: string;
-  leading: React.ReactNode;
-  sendButton?: boolean;
-  error?: string;
-  listPosition: "above" | "below";
-}) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
-  const listId = useId();
-  const show = open && options.length > 0;
-
-  useEffect(() => setActive(-1), [value]);
-
-  function pick(text: string, option?: T) {
-    onSubmit(text, option);
-    setOpen(false);
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (show && e.key === "ArrowDown") {
-      e.preventDefault();
-      setActive((i) => (i + 1) % options.length);
-    } else if (show && e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((i) => (i <= 0 ? options.length - 1 : i - 1));
-    } else if (show && e.key === "Tab" && !e.shiftKey) {
-      e.preventDefault();
-      onChange(options[Math.max(0, active)].text);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      if (show && active >= 0) pick(options[active].text, options[active]);
-      else if (value.trim()) pick(value);
-    }
-  }
-
-  return (
-    <div className="relative">
-      {show && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label="Suggestions"
-          className={cn(
-            "surface-paper absolute inset-x-0 z-30 overflow-hidden rounded-3xl border border-border bg-card p-1.5",
-            SHADOW,
-            listPosition === "above" ? "bottom-full mb-2" : "top-full mt-2",
-          )}
-        >
-          {options.map((o, i) => (
-            <li
-              key={o.text + i}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={i === active}
-              onMouseDown={(e) => {
-                e.preventDefault(); // keep focus in the input
-                pick(o.text, o);
-              }}
-              onMouseEnter={() => setActive(i)}
-              className={cn(
-                "flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-sm",
-                i === active && "bg-muted",
-              )}
-            >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-background">
-                {renderIcon(o)}
-              </span>
-              <span className="truncate">{o.text}</span>
-            </li>
-          ))}
-          <li
-            aria-hidden
-            className="px-3 pb-1 pt-1.5 text-[11px] text-muted-foreground"
-          >
-            ↑↓ to move · Enter to pick · Tab to fill in · Esc to close
-          </li>
-        </ul>
-      )}
-      <div
-        className={cn(
-          "flex h-12 items-center gap-2 rounded-full border bg-card pl-4 pr-1.5 focus-within:border-primary",
-          error ? "border-destructive" : "border-border",
-          sendButton && "shadow-[0_16px_40px_-28px_hsl(230_60%_15%/0.5)]",
-        )}
-      >
-        {leading}
-        <input
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setOpen(false)}
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          aria-label={label}
-          role="combobox"
-          aria-expanded={show}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-activedescendant={
-            show && active >= 0 ? `${listId}-${active}` : undefined
-          }
-          aria-invalid={!!error}
-          className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
-        {sendButton ? (
-          <button
-            type="button"
-            disabled={!value.trim()}
-            onClick={() => pick(value)}
-            aria-label="Send"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
-          >
-            <ArrowUp className="size-4" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={!value.trim()}
-            onClick={() => pick(value)}
-            className="h-9 shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40"
-          >
-            Add
-          </button>
-        )}
-      </div>
-      {error && <p className="mt-1.5 pl-4 text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
-
-// ---- Nutrition facts -----------------------------------------------------
-
-// Dummy recipe shown in the panel while the ingredient list is empty.
-// Set SHOW_SAMPLE_NUTRITION to false to turn it off.
-const SHOW_SAMPLE_NUTRITION = true;
-const sampleIngredients = [
-  { name: "Chicken breast", amount: "400", unit: "g" },
-  { name: "Pasta", amount: "200", unit: "g" },
-  { name: "Heavy cream", amount: "1/2", unit: "cup" },
-  { name: "Parmesan", amount: "1/2", unit: "cup" },
-  { name: "Butter", amount: "1", unit: "tbsp" },
-  { name: "Garlic", amount: "3", unit: "clove" },
-  { name: "Broccoli", amount: "2", unit: "cup" },
-  { name: "Salt", amount: "", unit: "" },
-];
-
-const factRows: {
-  key: keyof Nutrients;
-  label: string;
-  unit: "g" | "mg";
-  sub?: boolean;
-}[] = [
-  { key: "fat", label: "Total Fat", unit: "g" },
-  { key: "satFat", label: "Saturated Fat", unit: "g", sub: true },
-  { key: "cholesterol", label: "Cholesterol", unit: "mg" },
-  { key: "sodium", label: "Sodium", unit: "mg" },
-  { key: "carbs", label: "Total Carbohydrate", unit: "g" },
-  { key: "fiber", label: "Dietary Fiber", unit: "g", sub: true },
-  { key: "sugar", label: "Total Sugars", unit: "g", sub: true },
-  { key: "protein", label: "Protein", unit: "g" },
-];
-
-function NutritionPanel({
-  nutrition,
-  servings,
-  hasIngredients,
-  isSample,
-}: {
-  nutrition: RecipeNutrition;
-  servings: number;
-  hasIngredients: boolean;
-  isSample?: boolean;
-}) {
-  const [scope, setScope] = useState<"serving" | "recipe">("serving");
-  const n = scope === "serving" ? nutrition.perServing : nutrition.total;
-
-  // Share of calories from each macro (4/4/9 kcal per gram).
-  const hasMacroSplit = n.protein !== null && n.carbs !== null && n.fat !== null;
-  const macroKcal = {
-    protein: (n.protein ?? 0) * 4,
-    carbs: (n.carbs ?? 0) * 4,
-    fat: (n.fat ?? 0) * 9,
-  };
-  const macroSum = macroKcal.protein + macroKcal.carbs + macroKcal.fat;
-  const split = [
-    {
-      key: "protein",
-      label: "Protein",
-      color: "bg-macro-protein",
-      kcal: macroKcal.protein,
-    },
-    {
-      key: "carbs",
-      label: "Carbs",
-      color: "bg-macro-carbs",
-      kcal: macroKcal.carbs,
-    },
-    { key: "fat", label: "Fat", color: "bg-macro-fat", kcal: macroKcal.fat },
-  ];
-
-  return (
-    <section className="surface-paper flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
-        <h2 className="font-display text-4xl leading-none tracking-tight">
-          Estimated Nutrition
-        </h2>
-        {isSample && (
-          <p className="mt-2 w-fit rounded-full bg-[hsl(45_84%_72%)] px-3 py-1 text-[11px] font-medium text-[hsl(230_50%_16%)]">
-            Sample data: add ingredients to see yours
-          </p>
-        )}
-
-        <div
-          role="radiogroup"
-          aria-label="Show nutrition for"
-          className="mt-4 grid grid-cols-2 rounded-full bg-muted p-1 text-xs"
-        >
-          {(["serving", "recipe"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={scope === v}
-              onClick={() => setScope(v)}
-              className={cn(
-                "rounded-full py-1.5 transition-colors",
-                scope === v
-                  ? "bg-primary font-medium text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {v === "serving" ? "Per serving" : "Whole recipe"}
-            </button>
-          ))}
-        </div>
-
-        <p className="mt-3 text-xs text-muted-foreground">
-          {servings} {servings === 1 ? "serving" : "servings"} per recipe
-          {hasIngredients &&
-            ` · ${nutrition.counted} of ${nutrition.items.length} ingredients counted`}
-        </p>
-
-        {!hasIngredients || nutrition.counted === 0 ? (
-          <p className="mt-6 rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-            {hasIngredients
-              ? nutrition.skipped.map((item) => item.name + ": " + item.issue).join(" · ")
-              : "Add ingredients with amounts to see estimated nutrition."}
-          </p>
-        ) : (
-          <>
-            {/* Calories */}
-            <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
-              <span className="text-lg font-bold">Calories</span>
-              <span className="font-display text-5xl leading-none tabular-nums">
-                {n.kcal === null ? "—" : Math.round(n.kcal)}
-              </span>
-            </div>
-
-            {/* Macro split */}
-            {hasMacroSplit && macroSum > 0 && (
-              <div className="mt-3">
-                <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
-                  {split.map((m) => (
-                    <div
-                      key={m.key}
-                      className={m.color}
-                      style={{ width: `${(m.kcal / macroSum) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <ul className="mt-2 flex justify-between text-xs">
-                  {split.map((m) => (
-                    <li key={m.key} className="flex items-center gap-1.5">
-                      <span className={cn("size-2 rounded-full", m.color)} />
-                      {m.label}{" "}
-                      <span className="tabular-nums text-muted-foreground">
-                        {Math.round((m.kcal / macroSum) * 100)}%
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Label rows */}
-            <dl className="mt-3 text-sm">
-              <div className="flex justify-end border-b border-foreground/60 pb-1 text-[11px] font-semibold">
-                % Daily Value*
-              </div>
-              {factRows.map((row) => {
-                const value = n[row.key];
-                const dv = dailyValues[row.key];
-                return (
-                  <div
-                    key={row.key}
-                    className={cn(
-                      "flex items-baseline justify-between gap-2 border-b border-border py-1.5",
-                      row.sub && "pl-4",
-                    )}
-                  >
-                    <dt>
-                      <span className={cn(!row.sub && "font-semibold")}>
-                        {row.label}
-                      </span>{" "}
-                      <span className="tabular-nums">
-                        {fmtNutrient(value, row.unit)}
-                      </span>
-                    </dt>
-                    <dd className="font-semibold tabular-nums">
-                      {dv && value !== null ? `${Math.round((value / dv) * 100)}%` : ""}
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
-
-            {/* Anything we couldn't count */}
-            {nutrition.skipped.length > 0 && (
-              <div className="mt-4 rounded-2xl bg-[hsl(45_84%_72%/0.35)] p-3 text-xs">
-                <p className="flex items-center gap-1.5 font-semibold">
-                  <TriangleAlert className="size-3.5" />
-                  Not counted in the totals
-                </p>
-                <ul className="mt-1.5 flex flex-col gap-1">
-                  {nutrition.skipped.map((i, idx) => (
-                    <li key={`${i.name}-${idx}`}>
-                      <span className="font-medium">{i.name}</span>: {i.issue}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Per-ingredient breakdown */}
-            <details className="group mt-4 text-sm">
-              <summary className="cursor-pointer list-none font-medium marker:hidden">
-                <span className="underline decoration-foreground/30 underline-offset-4 group-open:decoration-foreground">
-                  Breakdown by ingredient
-                </span>
-              </summary>
-              <ul className="mt-2 flex flex-col">
-                {nutrition.items.map((i, idx) => (
-                  <li
-                    key={`${i.name}-${idx}`}
-                    className="flex items-baseline justify-between gap-2 border-b border-border py-1.5"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate">{i.name}</span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        {i.grams !== null
-                          ? `${Math.round(i.grams)} g`
-                          : "not counted"}
-                        {i.note && ` · ${i.note}`}
-                      </span>
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      {i.nutrients
-                        ? formatCalories(i.nutrients.kcal)
-                        : "–"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          </>
-        )}
-
-        <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
-          * % Daily Value is based on a 2,000-calorie diet. A dash means a nutrient value is unavailable.
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function formatCalories(value: number | null) {
-  return value === null ? "—" : `${Math.round(value)} kcal`;
-}
-
-function fmtNutrient(value: number | null, unit: "g" | "mg") {
-  if (value === null) return "—";
-  if (unit === "mg") return `${Math.round(value)}mg`;
-  return `${Number(value.toFixed(2))} g`;
 }
