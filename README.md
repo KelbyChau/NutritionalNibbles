@@ -1,120 +1,135 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# NutritionalNibbles
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+**Keep the recipe. Change the macros.**
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+NutritionalNibbles helps people adapt meals they already cook to fit their
+macro goals. Add a recipe's ingredients, pick a goal (more protein, fewer
+calories, fewer carbs or less fat), and get practical ingredient swaps, with a
+clear before-and-after comparison of what each swap does.
 
-## Local testing with demo data
+Built by a team of three for a 24-hour hackathon.
 
-To run the whole app against a local, seeded database in Docker:
+> Nutrition figures are estimates from USDA food data, not medical advice.
+
+## Features
+
+- **Recipe builder** (`/optimize`): search the USDA food list, add ingredients
+  with amounts, set servings, and see calories, macros and a full nutrition
+  label update as you go.
+- **Optimize page** (`/optimize/chat`): choose a goal or ask for a change in
+  your own words. Suggested swaps show how calories, protein, carbs and fat
+  change per serving, plus a note on taste or texture. Apply, undo, or reset
+  any change, then save.
+- **AI swap suggestions**: Gemini proposes swaps, and every one is re-checked
+  against USDA nutrition data before it is shown, so no invented numbers.
+- **Dashboard** (`/dashboard`): your saved recipes, with search, sorting, and
+  delete.
+- **Accounts**: email sign-up and log-in. Visitors can also save as a guest
+  (an anonymous Supabase account), with no sign-up needed.
+
+## Tech stack
+
+- [Next.js 16](https://nextjs.org) (App Router, Cache Components) and React 19
+- [Supabase](https://supabase.com): Postgres, Auth, row-level security
+- [Tailwind CSS](https://tailwindcss.com) and [shadcn/ui](https://ui.shadcn.com)
+- [Motion](https://motion.dev) for animations
+- Google Gemini for swap suggestions (server side)
+- USDA FoodData Central (Foundation Foods and SR Legacy), loaded into the
+  database by migrations
+
+## Project structure
+
+```
+app/                  Pages and API routes
+  page.tsx            Landing page
+  dashboard/          Saved recipes
+  optimize/           Recipe builder, and chat/ for the optimize page
+  api/optimize/       Gemini swap suggestions
+  auth/               Sign up, log in, password reset
+components/           UI (landing/, dashboard/, optimize/, ui/ for shadcn)
+lib/                  Nutrition math, USDA lookups, Supabase clients, saving
+supabase/
+  migrations/         Database schema, in order
+  seed.sql            Demo users and recipes for local testing
+  tests/              Database tests (pgTAP)
+scripts/local.mjs     Runs the app against a local database
+Docs/                 Project context and local-testing guide
+```
+
+## Getting started
+
+### Requirements
+
+- Node.js 20.9 or newer
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/), for the
+  local database (recommended)
+
+### 1. Install
+
+```bash
+git clone https://github.com/KelbyChau/NutritionalNibbles.git
+cd NutritionalNibbles
+npm install
+```
+
+### 2. Set environment variables
+
+Copy `.env.example` to `.env.local` and fill in:
+
+| Variable | Needed for | Where to find it |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Everything | Supabase, Project Settings → API |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Everything | Supabase, Project Settings → API Keys (publishable or anon key) |
+| `GEMINI_API_KEY` | AI swap suggestions | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `GEMINI_MODEL` | Optional | Defaults to `gemini-3.5-flash-lite` |
+
+Every line in `.env.local` must be `NAME=value` or a comment starting with
+`#`; the Supabase CLI refuses to start otherwise. Never commit this file.
+
+### 3. Run it
+
+**Option A: local database with demo data (recommended)**
+
+Start Docker Desktop, then:
 
 ```bash
 npm run local
 ```
 
-See [Docs/LOCAL_TESTING.md](Docs/LOCAL_TESTING.md) for the demo accounts and other commands.
+This starts a local Supabase database in Docker, applies every migration,
+loads the demo data, and runs the app at
+[localhost:3000](http://localhost:3000). It signs you in as the demo user
+automatically. The first start downloads the Docker images and takes a few
+minutes.
 
-## Features
+Demo accounts (local only), both with password `demo-password`:
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+- `demo@example.com`: 15 recipes
+- `demo2@example.com`: 1 recipe
 
-## Demo
+Local data never touches the shared Supabase project. See
+[Docs/LOCAL_TESTING.md](Docs/LOCAL_TESTING.md) for more.
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+**Option B: against the shared Supabase project**
 
-## Deploy to Vercel
-
-Vercel deployment will guide you through creating a Supabase account and project.
-
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
-
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
-
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
-
-## Clone and run locally
-
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
-
-2. Create a Next.js app using the Supabase Starter template npx command
-
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
-
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
-
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
-
-3. Use `cd` to change into the app's directory
-
-   ```bash
-   cd with-supabase-app
-   ```
-
-4. Rename `.env.example` to `.env.local` and update the following:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
+```bash
+npm run dev
 ```
 
-> [!NOTE]
-> This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-> Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-> See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+Uses the Supabase project in `.env.local`. It starts with no demo recipes.
 
-Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+### Useful commands
 
-5. You can now run the Next.js local development server:
+| Command | What it does |
+|---|---|
+| `npm run local` | Start the local database (if needed) and the app |
+| `npm run local:reset` | Rebuild the local database from migrations and seed (deletes local data) |
+| `npm run local:stop` | Stop the local database (data is kept) |
+| `npm run test:db` | Run the database tests |
+| `npm run dev` | Run the app against the Supabase project in `.env.local` |
+| `npm run build` | Production build, the same check Vercel runs |
+| `npm run lint` | Lint the code |
 
-   ```bash
-   npm run dev
-   ```
+## License
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
-
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
-
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
-
-## Feedback and issues
-
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
-
-## More Supabase examples
-
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+See [LICENSE](LICENSE).
