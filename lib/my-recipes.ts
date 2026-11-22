@@ -1,38 +1,31 @@
-// Recipes the user saves from the builder or the optimize page.
+// Saving and deleting the user's recipes in Supabase (public.recipes).
 //
-// There's no login right now, so they're kept in this browser's
-// localStorage (not the database). Each one has the same fields the
-// dashboard uses for database recipes, plus the ingredient list so the
-// builder can reopen it. Ids start with "local-" so they never clash with
-// database ids.
+// There's no login screen, so the first save signs this browser in as an
+// anonymous Supabase user. That gives the recipe an owner, which the
+// table's row-level security requires; the recipe is private to that user.
+// Anonymous sign-ins must be enabled in Supabase (Authentication → Sign In /
+// Providers, or enable_anonymous_sign_ins in supabase/config.toml).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FoundationFood } from "@/lib/foundation-foods";
 import { calculateNutrition } from "@/lib/nutrition";
-import type { RecipeListItem } from "@/lib/recipes/queries";
+import { createClient } from "@/lib/supabase/client";
 
-export type SavedIngredient = { fdc_id: number; amount: string; unit: string };
-export type MyRecipe = RecipeListItem & { ingredients: SavedIngredient[] };
-
-const KEY = "nutritionalnibbles:my-recipes";
-
-export const isMyRecipe = (id: string) => id.startsWith("local-");
-
-export function loadMyRecipes(): MyRecipe[] {
-  try {
-    const list = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+async function ensureSignedIn(supabase: SupabaseClient) {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) return;
+  const { error } = await supabase.auth.signInAnonymously();
+  if (error) throw new Error("Couldn't sign in to save: " + error.message);
 }
 
-export function getMyRecipe(id: string) {
-  return loadMyRecipes().find((r) => r.id === id) ?? null;
-}
-
-/** Saves (or, with an existing id, updates) a recipe. Throws if storage is blocked. */
-export function saveMyRecipe(input: {
-  id?: string | null;
+/**
+ * Saves a recipe with save_foundation_recipe(), which stores each ingredient
+ * by fdc_id and weight in grams and calculates the macros in the database.
+ * With `replaceId`, the new version replaces that recipe (saved first, then
+ * the old one is deleted). Returns the new recipe id.
+ */
+export async function saveMyRecipe(input: {
+  replaceId?: string | null;
   title: string;
   servings: number;
   ingredients: {
@@ -41,46 +34,35 @@ export function saveMyRecipe(input: {
     unit: string;
     food: FoundationFood;
   }[];
-}): MyRecipe {
-  const list = loadMyRecipes();
-  const existing = input.id ? list.find((r) => r.id === input.id) : undefined;
-  const n = calculateNutrition(input.ingredients, input.servings).perServing;
-  const round = (v: number | null) => (v === null ? null : Math.round(v * 10) / 10);
+}): Promise<string> {
+  const { items } = calculateNutrition(input.ingredients, input.servings);
+  const unweighable = items.find((i) => i.grams === null || i.grams <= 0);
+  if (unweighable)
+    throw new Error(
+      `Enter ${unweighable.name.split(" (")[0]} as a weight (g, kg, oz or lb).`,
+    );
 
-  const recipe: MyRecipe = {
-    id: existing?.id ?? `local-${crypto.randomUUID()}`,
-    owner_id: null,
-    title: input.title.trim() || "Untitled recipe",
-    description: "Saved from the recipe builder.",
-    image_url: null,
-    cuisine: null,
-    dietary_tags: [],
-    prep_minutes: 0,
-    cook_minutes: 0,
-    servings: input.servings,
-    ingredient_count: input.ingredients.length,
-    calories_per_serving: round(n.kcal),
-    protein_g_per_serving: round(n.protein),
-    carbohydrates_g_per_serving: round(n.carbs),
-    fat_g_per_serving: round(n.fat),
-    created_at: existing?.created_at ?? new Date().toISOString(),
-    ingredients: input.ingredients.map((i) => ({
-      fdc_id: i.food.fdc_id,
-      amount: i.amount,
-      unit: i.unit,
+  const supabase = createClient();
+  await ensureSignedIn(supabase);
+
+  const { data: id, error } = await supabase.rpc("save_foundation_recipe", {
+    recipe_title: input.title.trim(),
+    serving_count: input.servings,
+    items: input.ingredients.map((ing, i) => ({
+      fdc_id: ing.food.fdc_id,
+      amount: Math.round(items[i].grams! * 10) / 10,
     })),
-  };
+  });
+  if (error || !id) throw new Error(error?.message || "Couldn't save the recipe.");
 
-  const next = existing
-    ? list.map((r) => (r.id === recipe.id ? recipe : r))
-    : [recipe, ...list];
-  localStorage.setItem(KEY, JSON.stringify(next));
-  return recipe;
+  if (input.replaceId && input.replaceId !== id) {
+    // Only deletes the user's own recipes (RLS); otherwise a no-op.
+    await supabase.from("recipes").delete().eq("id", input.replaceId);
+  }
+  return id as string;
 }
 
-/** Removes a saved recipe and returns the ones left. */
-export function deleteMyRecipe(id: string): MyRecipe[] {
-  const next = loadMyRecipes().filter((r) => r.id !== id);
-  localStorage.setItem(KEY, JSON.stringify(next));
-  return next;
+export async function deleteMyRecipe(id: string) {
+  const { error } = await createClient().from("recipes").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }

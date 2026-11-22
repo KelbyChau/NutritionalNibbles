@@ -20,7 +20,7 @@ import { SaveButton } from "@/components/save-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { parseIngredient } from "@/lib/ingredients";
 import { calculateNutrition } from "@/lib/nutrition";
-import { getMyRecipe, isMyRecipe, saveMyRecipe } from "@/lib/my-recipes";
+import { saveMyRecipe } from "@/lib/my-recipes";
 import { createClient } from "@/lib/supabase/client";
 import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
@@ -101,14 +101,15 @@ function RecipeBuilderPage() {
     if (!recipeId || !foods.length) return;
     let current = true;
     async function load() {
-      // Recipes saved in this browser ("local-…") vs. database recipes.
-      const { data, error } = isMyRecipe(recipeId!)
-        ? { data: getMyRecipe(recipeId!), error: null }
-        : await createClient()
-            .from("recipes")
-            .select("title, servings, ingredients")
-            .eq("id", recipeId!)
-            .maybeSingle();
+      const supabase = createClient();
+      const [{ data, error }, { data: session }] = await Promise.all([
+        supabase
+          .from("recipes")
+          .select("title, servings, ingredients, owner_id")
+          .eq("id", recipeId!)
+          .maybeSingle(),
+        supabase.auth.getSession(),
+      ]);
       if (!current) return;
       if (error || !data) {
         setRecipeStatus("Couldn’t load that recipe.");
@@ -142,8 +143,9 @@ function RecipeBuilderPage() {
       setIngredients(list);
       nextId.current = id;
       setRecipeStatus("");
-      // Saving again updates this recipe instead of adding a copy.
-      if (isMyRecipe(recipeId!)) setSavedId(recipeId!);
+      // The user's own recipe: saving again replaces it instead of adding a copy.
+      const userId = session.session?.user.id;
+      if (userId && data.owner_id === userId) setSavedId(recipeId!);
     }
     void load();
     return () => {
@@ -220,15 +222,15 @@ function RecipeBuilderPage() {
     router.push("/optimize/chat");
   }
 
-  function save() {
+  async function save() {
     if (!requireName()) return false;
-    const recipe = saveMyRecipe({
-      id: savedId,
+    const id = await saveMyRecipe({
+      replaceId: savedId,
       title,
       servings,
       ingredients,
     });
-    setSavedId(recipe.id);
+    setSavedId(id);
   }
 
   return (

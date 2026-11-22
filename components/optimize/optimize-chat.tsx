@@ -139,9 +139,14 @@ function OptimizeChatPage() {
     saveDraft({ title, servings, original, current, savedId });
   }, [loaded, title, servings, original, current, savedId]);
 
-  function save() {
-    const recipe = saveMyRecipe({ id: savedId, title, servings, ingredients: current });
-    setSavedId(recipe.id);
+  async function save() {
+    const id = await saveMyRecipe({
+      replaceId: savedId,
+      title,
+      servings,
+      ingredients: current,
+    });
+    setSavedId(id);
   }
 
   useEffect(() => {
@@ -745,7 +750,7 @@ function Shell({
 }: {
   title: string;
   /** Shown only when there's a recipe to save. */
-  onSave?: () => void;
+  onSave?: () => Promise<void>;
   children: React.ReactNode;
 }) {
   return (

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookmarkPlus, Check, TriangleAlert } from "lucide-react";
+import { BookmarkPlus, Check, LoaderCircle, TriangleAlert } from "lucide-react";
 
-// Calls onSave and shows "Saved" (or "Couldn't save") for a moment.
+// Calls onSave and shows "Saved" for a moment, or the error it threw.
 // onSave can return false to cancel (e.g. the recipe still needs a name).
 // Without onSave it's UI only.
 export function SaveButton({
@@ -12,41 +12,64 @@ export function SaveButton({
   disabled,
 }: {
   label?: string;
-  onSave?: () => boolean | void;
+  onSave?: () => Promise<boolean | void> | boolean | void;
   disabled?: boolean;
 }) {
-  const [state, setState] = useState<"idle" | "saved" | "error">("idle");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+  const [error, setError] = useState("");
   useEffect(() => {
-    if (state === "idle") return;
+    if (state !== "saved") return;
     const t = setTimeout(() => setState("idle"), 2000);
     return () => clearTimeout(t);
   }, [state]);
 
-  function save() {
+  async function save() {
+    setState("saving");
+    setError("");
     try {
-      if (onSave?.() === false) return;
+      if ((await onSave?.()) === false) return setState("idle");
       setState("saved");
-    } catch {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn’t save.");
       setState("error");
     }
   }
 
-  const Icon =
-    state === "saved" ? Check : state === "error" ? TriangleAlert : BookmarkPlus;
+  const Icon = {
+    idle: BookmarkPlus,
+    saving: LoaderCircle,
+    saved: Check,
+    error: TriangleAlert,
+  }[state];
   return (
-    <button
-      type="button"
-      onClick={save}
-      disabled={disabled}
-      aria-live="polite"
-      className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
-    >
-      <Icon className="size-4" />
-      {state === "saved"
-        ? "Saved"
-        : state === "error"
-          ? "Couldn’t save"
-          : label}
-    </button>
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={save}
+        disabled={disabled || state === "saving"}
+        aria-describedby={error ? "save-error" : undefined}
+        className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+      >
+        <Icon className={state === "saving" ? "size-4 animate-spin" : "size-4"} />
+        {state === "saving"
+          ? "Saving…"
+          : state === "saved"
+            ? "Saved"
+            : state === "error"
+              ? "Try again"
+              : label}
+      </button>
+      {error && (
+        <span
+          id="save-error"
+          role="alert"
+          className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-destructive/40 bg-card p-3 text-xs text-destructive shadow-lg"
+        >
+          {error}
+        </span>
+      )}
+    </span>
   );
 }

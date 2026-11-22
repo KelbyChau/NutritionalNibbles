@@ -78,6 +78,7 @@ function startApp() {
 Local database is running in Docker.
   Studio (browse the data): ${status.STUDIO_URL ?? "http://127.0.0.1:54323"}
   Demo sign-in:             demo@example.com / demo-password  (or demo2@example.com)
+                            You're signed in as demo@example.com automatically.
 Starting the app against it…
 `);
 
@@ -89,6 +90,10 @@ Starting the app against it…
       ...process.env,
       NEXT_PUBLIC_SUPABASE_URL: url,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
+      // Sign every visitor in as the first seeded demo account (see
+      // lib/supabase/proxy.ts). Local database only.
+      LOCAL_DEMO_EMAIL: "demo@example.com",
+      LOCAL_DEMO_PASSWORD: "demo-password",
     },
   });
   // Ctrl+C reaches next dev directly; exit once it has shut down.
