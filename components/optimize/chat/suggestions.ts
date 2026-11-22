@@ -3,7 +3,8 @@
 import { Minus, Plus, RotateCcw, Undo2, UtensilsCrossed, WandSparkles, X } from "lucide-react";
 import type { FoundationFood } from "@/lib/foundation-foods";
 import { findSwapRule } from "../changes";
-import { goals, ingredientOptions, type Ingredient } from "../shared";
+import { goals, type Ingredient } from "../shared";
+import { ingredientOptions } from "../ingredients";
 import { lower } from "./swap-text";
 import type { Suggestion } from "./types";
 

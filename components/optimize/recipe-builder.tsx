@@ -24,26 +24,11 @@ import { saveMyRecipe } from "@/lib/my-recipes";
 import { createClient } from "@/lib/supabase/client";
 import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
-import {
-  BUTTER,
-  Combobox,
-  IngredientArt,
-  NutritionPanel,
-  Stat,
-  AnimatedNumber,
-  fmtCount,
-  fmtNutrient,
-  formatCalories,
-  alreadyAddedMessage,
-  ingredientOptions,
-  ingredientWithFood,
-  clearDraft,
-  loadDraft,
-  makeIngredient,
-  saveDraft,
-  useUsdaFoods,
-  type Ingredient,
-} from "./shared";
+import { BUTTER, IngredientArt, Stat, AnimatedNumber, fmtCount, type Ingredient } from "./shared";
+import { Combobox } from "./combobox";
+import { NutritionPanel, fmtNutrient, formatCalories } from "./nutrition-panel";
+import { alreadyAddedMessage, ingredientOptions, ingredientWithFood, makeIngredient, useUsdaFoods } from "./ingredients";
+import { clearDraft, loadDraft, saveDraft } from "./draft";
 import { RecipeImport, type ImportedRecipe } from "./recipe-import";
 
 // Where ingredient art sits on the stage, in % of the stage box. The first

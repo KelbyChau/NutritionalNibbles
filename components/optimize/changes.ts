@@ -10,7 +10,8 @@ import {
   type Nutrients,
 } from "@/lib/nutrition";
 import { foodName, type FoundationFood } from "@/lib/foundation-foods";
-import { makeIngredient, type GoalKey, type Ingredient } from "./shared";
+import { makeIngredient } from "./ingredients";
+import { type GoalKey, type Ingredient } from "./shared";
 
 type SwapRule = {
   from: number[]; // fdc_ids

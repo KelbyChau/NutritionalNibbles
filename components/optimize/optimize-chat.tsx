@@ -24,20 +24,11 @@ import {
   type VerifiedSwap,
 } from "@/lib/optimizer/nutrient-swaps";
 import { cn } from "@/lib/utils";
-import {
-  BUTTER,
-  Combobox,
-  NutritionPanel,
-  goals,
-  alreadyAddedMessage,
-  ingredientWithFood,
-  loadDraft,
-  makeIngredient,
-  saveDraft,
-  useUsdaFoods,
-  type GoalKey,
-  type Ingredient,
-} from "./shared";
+import { BUTTER, goals, type GoalKey, type Ingredient } from "./shared";
+import { Combobox } from "./combobox";
+import { NutritionPanel } from "./nutrition-panel";
+import { alreadyAddedMessage, ingredientWithFood, makeIngredient, useUsdaFoods } from "./ingredients";
+import { loadDraft, saveDraft } from "./draft";
 import {
   describeDelta,
   findSwapRule,

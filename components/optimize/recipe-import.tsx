@@ -25,7 +25,8 @@ import { calculateNutrition } from "@/lib/nutrition";
 import { combineDuplicates, matchFood, parseLine, type FoodMatch } from "@/lib/recipe-url/ingredient-lines";
 import type { ScrapedRecipe } from "@/lib/recipe-url/extract";
 import { cn } from "@/lib/utils";
-import { formatCalories, IngredientArt } from "./shared";
+import { formatCalories } from "./nutrition-panel";
+import { IngredientArt } from "./shared";
 
 export type ImportedRecipe = {
   title: string;
