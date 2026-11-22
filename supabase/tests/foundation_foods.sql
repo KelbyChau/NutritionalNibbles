@@ -3,7 +3,8 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select plan(5);
 
-select has_table('public', 'foundation_foods');
+-- Three arguments: with two plain strings pgTAP picks has_table(table, description).
+select has_table('public', 'foundation_foods', 'foundation_foods table exists');
 select is((select count(*) from public.foundation_foods), 424::bigint, 'all October 2026 Foundation Foods imported');
 select is((select relrowsecurity from pg_class where oid = 'public.foundation_foods'::regclass), true, 'RLS enabled');
 
