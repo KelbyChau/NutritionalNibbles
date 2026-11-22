@@ -2,9 +2,12 @@
 //
 export type IngredientInfo = { name: string; emoji: string; image?: string };
 
-// Match the display name before its USDA preparation notes. Use word
-// boundaries so names like eggplant and butternut do not pick up unrelated art.
+// Match named foods before broader families. Word boundaries avoid matches
+// like pineapple picking up the apple illustration.
 const ingredientArtwork = [
+  ["sweet-potato", /\bsweet potatoes?$/i],
+  ["cauliflower-rice", /\b(?:riced cauliflower|cauliflower rice)$/i],
+  ["peanut-butter", /\bpeanut butter$/i],
   ["chicken", /^chicken(?: (?:breasts?|thighs?|drumsticks?|wings?))?$|\bchicken (?:breasts?|thighs?|drumsticks?|wings?)$/i],
   ["beef", /^beef$|\b(?:ground beef|beef steaks?|steaks?)$/i],
   ["salmon", /\bsalmon(?: fillets?)?$/i],
@@ -29,11 +32,52 @@ const ingredientArtwork = [
   ["spinach", /\bspinach(?: leaves)?$/i],
   ["tofu", /\btofu$/i],
   ["shrimp", /\bshrimp(?:s)?$/i],
+  ["ground-turkey", /\b(?:ground turkey|turkey ground)$/i],
+  ["oats", /\b(?:oats?|oatmeal|oat flakes)$/i],
+  ["black-beans", /\bblack (?:turtle )?beans?$/i],
+  ["chickpeas", /\b(?:chickpeas?|garbanzo beans?|bengal gram)$/i],
+  ["mixed-berries", /^(?:(?:fresh|frozen|mixed|assorted) )*(?:berry mix|berries)$/i],
+  ["blueberries", /\bblueberr(?:y|ies)$/i],
+  ["strawberries", /\bstrawberr(?:y|ies)$/i],
+  ["raspberries", /\braspberr(?:y|ies)$/i],
+  ["blackberries", /\bblackberr(?:y|ies)$/i],
+  ["banana", /\bbananas?$/i],
+  ["apple", /\bapples?$/i],
+  ["orange", /\boranges?$/i],
+  ["lentils", /\blentils?$/i],
+  ["kidney-beans", /\bkidney beans?$/i],
+  ["edamame", /\b(?:edamame|green soybeans?)$/i],
+  ["quinoa", /\bquinoa$/i],
+  ["lime", /\blimes?$/i],
+  ["corn", /\bcorn(?: kernels?| on the cob)?$/i],
+  ["cucumber", /\bcucumbers?$/i],
+  ["lettuce", /\blettuce$/i],
+  ["asparagus", /\basparagus(?: spears?)?$/i],
+  ["zucchini", /\b(?:zucchini|courgettes?)$/i],
+  ["tuna", /\btuna(?: steaks?| fillets?)?$/i],
+  ["pork-chop", /\bpork chops?$/i],
+  ["tortilla", /\btortillas?$/i],
+  ["flour", /\bflour$/i],
+  ["almonds", /\balmonds?$/i],
+  ["basil", /\bbasil$/i],
+  ["rosemary", /\brosemary$/i],
+] as const;
+
+// Some USDA labels put the food variety inside the preparation notes.
+const artworkWithVarietyNotes = [
+  ["ground-turkey", /^turkey\s*\(ground\b/i],
+  ["oats", /^cereals?\s*\(oats?\b/i],
+  ["edamame", /^soybeans?\s*\(green\b/i],
+  ["zucchini", /^squash\s*\([^)]*\bzucchini\b/i],
+  ["pork-chop", /^pork\s*\(.*\bchops?\b/i],
 ] as const;
 
 export function ingredientImage(name: string) {
-  const label = name.split("(")[0].trim();
-  const match = ingredientArtwork.find(([, pattern]) => pattern.test(label));
+  const displayName = name.trim();
+  const label = displayName.split("(")[0].trim();
+  const match =
+    artworkWithVarietyNotes.find(([, pattern]) => pattern.test(displayName)) ??
+    ingredientArtwork.find(([, pattern]) => pattern.test(label));
   return `/ingredients/${match?.[0] ?? "bowl"}.webp`;
 }
 
