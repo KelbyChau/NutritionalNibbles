@@ -17,6 +17,16 @@
 </p>
 <br/>
 
+## Local testing with demo data
+
+To run the whole app against a local, seeded database in Docker:
+
+```bash
+npm run local
+```
+
+See [Docs/LOCAL_TESTING.md](Docs/LOCAL_TESTING.md) for the demo accounts and other commands.
+
 ## Features
 
 - Works across the entire [Next.js](https://nextjs.org) stack
