@@ -271,10 +271,26 @@ export function Stat({
   );
 }
 
-export function ingredientOptions(text: string, foods: FoundationFood[]) {
+/** The recipe's ingredient with this food, if it's already in the recipe. */
+export function ingredientWithFood(ingredients: Ingredient[], food: FoundationFood) {
+  return ingredients.find((i) => i.food.fdc_id === food.fdc_id);
+}
+
+/** Message for adding a food that's already in the recipe. */
+export function alreadyAddedMessage(ingredient: Ingredient) {
+  return `${ingredient.name} is already in the recipe. Change its amount instead of adding it again.`;
+}
+
+/** Suggestions for the typed ingredient, leaving out foods already in the recipe. */
+export function ingredientOptions(
+  text: string,
+  foods: FoundationFood[],
+  inRecipe: Ingredient[] = [],
+) {
   const parsed = parseIngredient(text);
   if (!parsed) return [];
-  return foodSuggestions(foods, parsed.name).map((food) => ({
+  const used = new Set(inRecipe.map((i) => i.food.fdc_id));
+  return foodSuggestions(foods, parsed.name, used).map((food) => ({
     food,
     text: [parsed.amount, parsed.unit, foodLabel(food.description)]
       .filter(Boolean)

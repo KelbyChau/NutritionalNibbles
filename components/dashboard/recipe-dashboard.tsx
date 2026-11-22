@@ -11,12 +11,8 @@ import {
   Clock,
   Dumbbell,
   Flame,
-  Globe,
-  Leaf,
   ListFilter,
-  Salad,
   Search,
-  Timer,
   Trash2,
   Users,
   UtensilsCrossed,
@@ -41,15 +37,12 @@ import { cn } from "@/lib/utils";
 // Same shape listRecipes() returns for each recipe.
 export type DashboardRecipe = RecipeListItem;
 
-type Category = "all" | "mine" | "quick" | "protein" | "light";
+type Category = "all" | "mine";
 type Sort = "newest" | "quickest" | "protein" | "calories";
 
 const categories: { key: Category; label: string; icon: LucideIcon }[] = [
   { key: "all", label: "Recipes", icon: UtensilsCrossed },
   { key: "mine", label: "Yours", icon: ChefHat },
-  { key: "quick", label: "Quick", icon: Timer },
-  { key: "protein", label: "Protein", icon: Dumbbell },
-  { key: "light", label: "Light", icon: Leaf },
 ];
 
 const sorts: { key: Sort; label: string }[] = [
@@ -59,7 +52,6 @@ const sorts: { key: Sort; label: string }[] = [
   { key: "calories", label: "Fewest calories" },
 ];
 
-const ANY = "__any__";
 // The landing page's butter-yellow blob color, fixed so it reads the same in
 // both themes (the theme's --accent turns navy in dark mode).
 const BUTTER = "bg-[hsl(45_84%_72%)]";
@@ -117,46 +109,26 @@ export function RecipeDashboard({
   }
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category>("all");
-  const [cuisine, setCuisine] = useState(ANY);
-  const [diet, setDiet] = useState(ANY);
   const [sort, setSort] = useState<Sort>("newest");
   // Nothing is selected until a card is clicked; the big view falls back to
   // the first recipe but no card is outlined.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const router = useRouter();
 
-  const cuisines = useMemo(
-    () => unique(recipes.map((r) => r.cuisine)),
-    [recipes],
-  );
-  const diets = useMemo(
-    () => unique(recipes.flatMap((r) => r.dietary_tags)),
-    [recipes],
-  );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = recipes.filter((r) => {
       if (q) {
-        const haystack = [r.title, r.description, r.cuisine, ...r.dietary_tags]
+        const haystack = [r.title, r.description]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (cuisine !== ANY && r.cuisine !== cuisine) return false;
-      if (diet !== ANY && !r.dietary_tags.includes(diet)) return false;
       switch (category) {
         case "mine":
           return r.owner_id !== null && r.owner_id === userId;
-        case "quick":
-          return totalMinutes(r) <= 30;
-        case "protein":
-          return (r.protein_g_per_serving ?? 0) >= 25;
-        case "light":
-          return (
-            r.calories_per_serving !== null && r.calories_per_serving <= 450
-          );
         default:
           return true;
       }
@@ -181,7 +153,7 @@ export function RecipeDashboard({
           return b.created_at.localeCompare(a.created_at);
       }
     });
-  }, [recipes, query, category, cuisine, diet, sort, userId]);
+  }, [recipes, query, category, sort, userId]);
 
   const featured =
     visible.find((r) => r.id === selectedId) ?? visible[0] ?? null;
@@ -281,20 +253,6 @@ export function RecipeDashboard({
         {/* Featured recipe */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-2 rounded-full">
-            <FilterMenu
-              icon={Globe}
-              label="Cuisine"
-              value={cuisine}
-              options={cuisines}
-              onChange={setCuisine}
-            />
-            <FilterMenu
-              icon={Salad}
-              label="Diet"
-              value={diet}
-              options={diets}
-              onChange={setDiet}
-            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" className={chipClass}>
@@ -394,47 +352,6 @@ const cardExit = (id: string): Variants => ({
 const chipClass =
   "inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40 data-[state=open]:border-foreground/40";
 
-function FilterMenu({
-  icon: Icon,
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(chipClass, value !== ANY && "border-primary")}
-        >
-          <Icon className="size-4" />
-          {value === ANY ? label : value}
-          <ChevronDown className="size-4 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          <DropdownMenuRadioItem value={ANY}>
-            Any {label.toLowerCase()}
-          </DropdownMenuRadioItem>
-          {options.map((o) => (
-            <DropdownMenuRadioItem key={o} value={o}>
-              {o}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
   // Each stat rolls to the new value when a different recipe is shown.
   const stats: {
@@ -488,9 +405,6 @@ function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-start justify-between gap-4 pt-4 sm:pt-6">
         <div className="min-w-0">
-          {recipe.cuisine && (
-            <p className="text-sm text-muted-foreground">{recipe.cuisine}</p>
-          )}
           <h2
             className={cn(
               "font-display leading-[0.95] tracking-tight [overflow-wrap:anywhere] [text-wrap:balance]",
@@ -680,7 +594,7 @@ function EmptyState({
           {loadError
             ? loadError
             : hasRecipes
-              ? "Try a different search, category or filter."
+              ? "Try a different search or category."
               : "Create your first recipe and it will show up here."}
         </p>
         {!hasRecipes && !loadError && (
@@ -694,12 +608,6 @@ function EmptyState({
       </div>
     </div>
   );
-}
-
-function unique(values: (string | null | undefined)[]) {
-  return Array.from(
-    new Set(values.filter((v): v is string => !!v && v.trim() !== "")),
-  ).sort((a, b) => a.localeCompare(b));
 }
 
 function fmt(value: number | null, unit: string) {

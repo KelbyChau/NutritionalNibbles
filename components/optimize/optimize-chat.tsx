@@ -46,7 +46,9 @@ import {
   fmtCount,
   NutritionPanel,
   goals,
+  alreadyAddedMessage,
   ingredientOptions,
+  ingredientWithFood,
   loadDraft,
   makeIngredient,
   saveDraft,
@@ -609,6 +611,16 @@ function OptimizeChatPage() {
             text:
               catalogStatus ||
               "I couldn't find that in the USDA foods list. Pick one from the suggestions.",
+          },
+        );
+      }
+      const existing = ingredientWithFood(current, food);
+      if (existing) {
+        return push(
+          { role: "user", text: t },
+          {
+            role: "assistant",
+            text: `${alreadyAddedMessage(existing)} For example: “change ${lower(existing.name)} to 200 g”.`,
           },
         );
       }
@@ -1258,6 +1270,7 @@ function chatSuggestions(
     for (const option of ingredientOptions(
       q.replace(/^add\s*/i, ""),
       foods,
+      ingredients,
     ).slice(0, 4)) {
       out.push({
         text: "Add " + option.text,

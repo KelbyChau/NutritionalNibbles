@@ -83,11 +83,17 @@ export function foodName(description: string) {
 
 const words = (name: string) => name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 
-export function foodSuggestions(foods: FoundationFood[], query: string) {
+/** `exclude` holds fdc_ids to leave out, such as foods already in the recipe. */
+export function foodSuggestions(
+  foods: FoundationFood[],
+  query: string,
+  exclude?: ReadonlySet<number>,
+) {
   const terms = words(query);
   if (!terms.length) return [];
   const matches: { food: FoundationFood; rank: number[] }[] = [];
   for (const food of foods) {
+    if (exclude?.has(food.fdc_id)) continue;
     const tokens = words(food.description);
     // Every typed word must start a word in the name ("chick" finds chicken).
     if (!terms.every(term => tokens.some(token => token.startsWith(term)))) continue;
