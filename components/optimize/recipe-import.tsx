@@ -39,6 +39,7 @@ type Row = {
   include: boolean;
   food: FoundationFood | null;
   confidence: FoodMatch["confidence"] | "picked";
+  matchNote?: string;
   amount: string;
   unit: string;
   note?: string;
@@ -60,6 +61,7 @@ function buildRows(recipe: ScrapedRecipe, foods: FoundationFood[]): Row[] {
       raw,
       food: match.food,
       confidence: match.confidence,
+      matchNote: match.note,
       amount: line.amount,
       unit: line.unit,
       include: !!match.food && !!line.amount,
@@ -478,6 +480,9 @@ function ReviewRow({
             )}
           </div>
           {row.note && <p className="mt-1.5 text-xs text-muted-foreground">{row.note}</p>}
+          {row.confidence === "check" && row.matchNote && (
+            <p className="mt-1.5 text-xs text-muted-foreground">{row.matchNote}</p>
+          )}
         </div>
       </div>
     </li>

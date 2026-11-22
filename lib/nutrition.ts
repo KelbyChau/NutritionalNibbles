@@ -1,4 +1,5 @@
 import type { FoundationFood } from "./foundation-foods";
+import usdaPortions from "./usda-volume-portions.json" with { type: "json" };
 
 // Nutrition estimates for the recipe builder.
 //
@@ -387,14 +388,24 @@ const weightUnits: Record<string, number> = {
 };
 const pieceUnits = new Set(["", "clove", "slice", "can", "piece"]);
 
-function toGrams(qty: number, unit: string, food?: Food): number | null {
+// Keyed by the selected USDA food, so dry, condensed and ready-to-serve
+// versions can each use their own portion weight. See scripts/usda-volume-portions.py.
+type VolumePortion = { cup: number; tbsp?: number; tsp?: number; ml?: number };
+const volumePortions: Partial<Record<number, VolumePortion>> = usdaPortions;
+
+function toGrams(qty: number, unit: string, food?: Food, portion?: VolumePortion): number | null {
   if (unit in weightUnits) return qty * weightUnits[unit];
-  const cup = food?.cup;
+  const cup = portion?.cup ?? food?.cup;
   if (unit === "cup") return cup ? qty * cup : null;
-  if (unit === "tbsp") return cup ? (qty * cup) / 16 : null;
-  if (unit === "tsp") return cup ? (qty * cup) / 48 : null;
-  if (unit === "ml") return cup ? (qty * cup) / 240 : qty;
-  if (unit === "l") return cup ? (qty * cup * 1000) / 240 : qty * 1000;
+  if (unit === "tbsp" || unit === "tsp") {
+    const gramsPerSpoon = portion?.[unit];
+    if (gramsPerSpoon !== undefined) return qty * gramsPerSpoon;
+    return cup ? (qty * cup) / (unit === "tbsp" ? 16 : 48) : null;
+  }
+  if (unit === "ml" || unit === "l") {
+    const gramsPerMl = portion?.ml ?? (cup ? cup / 240 : 1);
+    return qty * (unit === "l" ? 1000 : 1) * gramsPerMl;
+  }
   if (unit === "pinch") return qty * 0.4;
   if (unit === "handful") return qty * 30;
   if (pieceUnits.has(unit)) return food?.piece ? qty * food.piece : null;
@@ -423,7 +434,8 @@ export function calculateNutrition(
         issue: "Enter a positive amount",
         note: ing.food ? undefined : match?.food.note,
       };
-    const grams = toGrams(qty, ing.unit, match?.food);
+    const portion = ing.food ? volumePortions[ing.food.fdc_id] : undefined;
+    const grams = toGrams(qty, ing.unit, match?.food, portion);
     if (grams === null || !Number.isFinite(grams))
       return {
         name: ing.name,

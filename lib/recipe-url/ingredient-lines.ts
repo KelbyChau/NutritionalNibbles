@@ -19,6 +19,7 @@ export type FoodMatch = {
   // check: close but not exact ("sharp cheddar" → "Cheese, cheddar").
   // none: nothing in the catalog looked right.
   confidence: "sure" | "check" | "none";
+  note?: string;
 };
 
 // ---- Line parsing --------------------------------------------------------------
@@ -240,6 +241,7 @@ const phrases: [RegExp, string][] = [
   [/\bwith skin\b/g, "skinon"],
   [/\bmeat and skin\b/g, "meat skin skinon"],
   [/\bground ((?:black|white) pepper)\b/g, "$1"],
+  [/^crushed red pepper$/g, "red pepper flakes"],
   [/\b(basil|thyme|oregano|rosemary|sage|parsley|cilantro|mint) (?:leaf|leaves)\b/g, "$1"],
   [/\b(?:white|caster|castor|superfine|cane) sugar\b/g, "granulated sugar"],
   [/\bplain flour\b/g, "all-purpose flour"],
@@ -321,7 +323,18 @@ export function matchFood(name: string, foods: FoundationFood[]): FoodMatch {
     if (!best || score > best.score || (score === best.score && item.order < best.item.order))
       best = { item, score, missing };
   }
-  if (!best) return { food: null, confidence: "none" };
+  if (!best) {
+    // SR Legacy has a dried red pepper spice but does not specify its grind.
+    // Use it only for a plain flake ingredient, after looking for an exact match.
+    if (/^(?:(?:crushed|dried|hot) )*(?:red pepper|(?:red )?chill?[ie](?: pepper)?) flakes?$|^crushed red pepper$/i.test(name.trim())) {
+      const redPepper = foods.find((food) => food.fdc_id === 170932);
+      if (redPepper) return {
+        food: redPepper, confidence: "check",
+        note: "USDA lists red or cayenne pepper. Its spoon weight and nutrients are estimates for flakes.",
+      };
+    }
+    return { food: null, confidence: "none" };
+  }
   // A cooked or canned USDA entry for a recipe that didn't say so is close, not exact.
   const changed = [...best.item.tokens].some(
     (t) => (cookedWords.includes(t) || processedWords.includes(t)) && !all.includes(t),
