@@ -142,10 +142,22 @@ export const UUID_RE =
 
 export type RecipeScope = "all" | "mine" | "public";
 
+/** Largest page GET /api/recipes returns. The dashboard loads pages of this size. */
+export const MAX_PAGE_SIZE = 100;
+
+// Timestamps as Postgres returns them, e.g. 2026-11-21T23:41:05.123456+00:00.
+// Strict on purpose: `before` is placed inside a PostgREST filter string, so
+// only digits and - : . T Z + are allowed through.
+const ISO_TIMESTAMP_RE =
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
 export type ListOptions = {
   scope: RecipeScope;
   limit: number;
+  /** created_at of the last recipe already shown. */
   before: string | null;
+  /** id of that same recipe; breaks ties between equal created_at values. */
+  beforeId: string | null;
 };
 
 /** Validates the query string for GET /api/recipes. */
@@ -158,14 +170,32 @@ export function parseListOptions(
   }
 
   const limit = Number(params.get("limit") ?? 50);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-    return { ok: false, error: "limit must be a whole number from 1 to 100" };
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE) {
+    return {
+      ok: false,
+      error: `limit must be a whole number from 1 to ${MAX_PAGE_SIZE}`,
+    };
   }
 
   const before = params.get("before");
-  if (before && Number.isNaN(Date.parse(before))) {
-    return { ok: false, error: "before must be an ISO timestamp" };
+  if (
+    before &&
+    (!ISO_TIMESTAMP_RE.test(before) || Number.isNaN(Date.parse(before)))
+  ) {
+    return {
+      ok: false,
+      error:
+        "before must be an ISO timestamp such as 2026-11-21T23:41:05.123456+00:00 (URL-encode the +)",
+    };
   }
 
-  return { ok: true, value: { scope, limit, before } };
+  const beforeId = params.get("before_id");
+  if (beforeId && (!before || !UUID_RE.test(beforeId))) {
+    return {
+      ok: false,
+      error: "before_id must be a recipe id and is only valid together with before",
+    };
+  }
+
+  return { ok: true, value: { scope, limit, before, beforeId } };
 }
