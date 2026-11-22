@@ -49,7 +49,7 @@ type Row = {
 const MAX_SERVINGS = 24; // same cap as the builder's servings stepper
 const UNITS = ["g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "pinch", "clove", "slice", "can", ""];
 const field =
-  "h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary";
+  "h-9 rounded-lg bg-secondary px-3 text-[15px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function buildRows(recipe: ScrapedRecipe, foods: UsdaFood[]): Row[] {
   return recipe.ingredients.map((raw, key) => {
@@ -183,15 +183,15 @@ export function RecipeImport({
         ref={dialog}
         aria-labelledby="recipe-import-title"
         onClose={() => request.current?.abort()}
-        className="surface-paper m-auto w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-hidden rounded-3xl border border-border bg-card p-0 text-foreground shadow-panel backdrop:bg-black/40 backdrop:backdrop-blur-sm"
+        className="m-auto w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-hidden rounded-panel border-0 bg-card p-0 text-foreground shadow-lift backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       >
         <div className="flex max-h-[min(90dvh,52rem)] flex-col">
-          <header className="flex items-start gap-3 border-b border-border px-5 pb-4 pt-5 sm:px-6">
+          <header className="flex items-start gap-3 border-b border-border/70 px-6 pb-4 pt-6 sm:px-7">
             <div className="mr-auto min-w-0">
-              <h2 id="recipe-import-title" className="font-display text-3xl leading-none tracking-tight">
+              <h2 id="recipe-import-title" className="text-[28px] font-semibold leading-tight tracking-[-0.015em]">
                 {recipe ? "Review import" : "Import a recipe"}
               </h2>
-              <p className="mt-1.5 text-sm text-muted-foreground">
+              <p className="mt-1 text-[15px] text-muted-foreground">
                 {recipe
                   ? "Check the matches and amounts. Only ticked ingredients are added."
                   : "Paste a link to a recipe page. We’ll read its ingredients and servings."}
@@ -201,19 +201,19 @@ export function RecipeImport({
               type="button"
               onClick={close}
               aria-label="Close"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted transition-colors hover:bg-foreground hover:text-background"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="size-4" />
             </button>
           </header>
 
           {!recipe ? (
-            <form onSubmit={find} className="flex flex-col gap-3 px-5 py-5 sm:px-6">
-              <label className="text-sm font-medium" htmlFor="recipe-import-url">
+            <form onSubmit={find} className="flex flex-col gap-3 px-6 py-6 sm:px-7">
+              <label className="text-[15px] font-medium" htmlFor="recipe-import-url">
                 Recipe link
               </label>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-background pl-4 pr-2 focus-within:border-primary">
+                <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full bg-secondary pl-4 pr-2 focus-within:ring-2 focus-within:ring-ring">
                   <Link2 className="size-4 shrink-0 text-muted-foreground" />
                   <input
                     id="recipe-import-url"
@@ -232,44 +232,44 @@ export function RecipeImport({
                     placeholder="https://www.example.com/creamy-chicken-pasta"
                     aria-invalid={!!error}
                     aria-describedby="recipe-import-help"
-                    className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    className="h-full min-w-0 flex-1 bg-transparent text-[17px] outline-none placeholder:text-muted-foreground"
                   />
                 </div>
-                <Button type="submit" disabled={loading || !url.trim()} className="h-12 rounded-full px-6 shadow-none">
+                <Button type="submit" size="lg" disabled={loading || !url.trim()}>
                   {loading ? <LoaderCircle className="animate-spin" /> : <Search />}
                   {loading ? "Reading page…" : "Find recipe"}
                 </Button>
               </div>
-              <p id="recipe-import-help" role={error ? "alert" : "status"} className={cn("text-sm", error ? "text-destructive" : "text-muted-foreground")}>
+              <p id="recipe-import-help" role={error ? "alert" : "status"} className={cn("text-[13px]", error ? "text-destructive" : "text-muted-foreground")}>
                 {error ||
                   "Works with most recipe sites (they publish recipe data for search engines). Some sites block imports."}
               </p>
             </form>
           ) : (
             <>
-              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5 sm:px-7">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <label className="flex flex-col gap-1 text-[12px] text-muted-foreground">
                     Title
                     <input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className={cn(field, "h-11 font-display text-xl")}
+                      className={cn(field, "h-11 text-[19px] font-semibold")}
                       placeholder="Name your dish"
                     />
                   </label>
-                  <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-1 text-[12px] text-muted-foreground">
                     <span id="recipe-import-servings">Servings</span>
                     <div
                       role="group"
                       aria-labelledby="recipe-import-servings"
-                      className="flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-2 text-base font-semibold tabular-nums text-foreground"
+                      className="flex h-11 items-center gap-2 rounded-full bg-secondary px-1 font-rounded text-[17px] font-semibold tabular-nums text-foreground"
                     >
                       <button
                         type="button"
                         aria-label="Fewer servings"
                         onClick={() => setServings((s) => Math.max(1, s - 1))}
-                        className="flex size-7 items-center justify-center rounded-full bg-muted hover:bg-primary hover:text-primary-foreground"
+                        className="flex size-8 items-center justify-center rounded-full bg-card shadow-[0_1px_2px_rgb(0_0_0/0.08)] hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <Minus className="size-3.5" />
                       </button>
@@ -278,19 +278,19 @@ export function RecipeImport({
                         type="button"
                         aria-label="More servings"
                         onClick={() => setServings((s) => Math.min(MAX_SERVINGS, s + 1))}
-                        className="flex size-7 items-center justify-center rounded-full bg-muted hover:bg-primary hover:text-primary-foreground"
+                        className="flex size-8 items-center justify-center rounded-full bg-card shadow-[0_1px_2px_rgb(0_0_0/0.08)] hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <Plus className="size-3.5" />
                       </button>
                     </div>
                   </div>
                 </div>
-                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
                   <a
                     href={recipe.sourceUrl}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
+                    className="inline-flex items-center gap-1 text-primary hover:underline hover:underline-offset-4"
                   >
                     {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
                     <ExternalLink className="size-3" />
@@ -308,8 +308,8 @@ export function RecipeImport({
                 </ul>
               </div>
 
-              <footer className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-                <div className="mr-auto text-sm">
+              <footer className="surface-glass flex flex-col gap-3 border-t border-border/70 px-6 py-4 sm:flex-row sm:items-center sm:px-7">
+                <div className="mr-auto text-[15px]">
                   <p className="font-medium">
                     {toAdd.length} {toAdd.length === 1 ? "ingredient" : "ingredients"} will be added
                     {included.length > 0 && (
@@ -347,10 +347,10 @@ export function RecipeImport({
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={startOver} className="h-11 rounded-full px-5 shadow-none">
+                  <Button type="button" variant="secondary" onClick={startOver} className="h-11">
                     Different link
                   </Button>
-                  <Button type="button" onClick={confirm} disabled={!included.length} className="h-11 rounded-full px-5 shadow-none">
+                  <Button type="button" onClick={confirm} disabled={!included.length} className="h-11">
                     <Check />
                     {replacing ? "Replace recipe" : "Add to recipe"}
                   </Button>
@@ -386,8 +386,8 @@ function ReviewRow({
   return (
     <li
       className={cn(
-        "rounded-2xl border border-border p-3 transition-opacity",
-        row.include ? "bg-background/60" : "bg-transparent opacity-70",
+        "rounded-card p-4 transition-opacity",
+        row.include ? "bg-secondary/70" : "bg-transparent opacity-60 ring-1 ring-border",
       )}
     >
       <div className="flex items-start gap-3">
@@ -400,7 +400,7 @@ function ReviewRow({
           className="mt-1 size-4 shrink-0 accent-[hsl(var(--primary))]"
         />
         <div className="min-w-0 flex-1">
-          <p className="break-words text-sm font-medium">{row.raw}</p>
+          <p className="break-words text-[15px] font-medium">{row.raw}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {foodName && (
@@ -408,7 +408,7 @@ function ReviewRow({
                 <IngredientArt ingredient={lookupIngredient(foodName)} sizeRem={1.5} />
               </span>
             )}
-            <span className={cn("min-w-0 truncate text-sm", !row.food && "text-muted-foreground")}>
+            <span className={cn("min-w-0 truncate text-[15px]", !row.food && "text-muted-foreground")}>
               {foodName ?? "No USDA match"}
             </span>
             <MatchBadge confidence={row.confidence} />
@@ -417,7 +417,7 @@ function ReviewRow({
                 type="button"
                 aria-expanded={search !== null}
                 onClick={() => setSearch(search === null ? parseLine(row.raw).name : null)}
-                className="text-xs text-primary underline underline-offset-4"
+                className="text-[13px] font-medium text-primary hover:underline hover:underline-offset-4"
               >
                 {search === null ? (row.food ? "Change" : "Find a match") : "Cancel"}
               </button>
@@ -425,7 +425,7 @@ function ReviewRow({
           </div>
 
           {search !== null && (
-            <div className="mt-2 rounded-2xl border border-border bg-card p-2">
+            <div className="mt-2 rounded-card bg-card p-2 shadow-panel">
               <label className="flex items-center gap-2 px-1">
                 <Search className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="sr-only">Search USDA foods</span>
@@ -440,7 +440,7 @@ function ReviewRow({
                     }
                   }}
                   placeholder="Search USDA foods, e.g. cheddar"
-                  className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none"
+                  className="h-8 min-w-0 flex-1 bg-transparent text-[15px] outline-none"
                 />
               </label>
               <ul className="mt-1">
@@ -452,7 +452,7 @@ function ReviewRow({
                         onChange({ food, confidence: "picked", include: true });
                         setSearch(null);
                       }}
-                      className="w-full rounded-xl px-2 py-1.5 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                      className="w-full rounded-xl px-2 py-1.5 text-left text-[15px] hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
                     >
                       {foodLabel(food.description)}
                     </button>
@@ -507,8 +507,12 @@ function MatchBadge({ confidence }: { confidence: Row["confidence"] }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-        check ? "bg-nutrient-carbs/15 text-foreground" : "bg-muted text-muted-foreground",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium",
+        check
+          ? "bg-nutrient-carbs/15 text-foreground"
+          : confidence === "picked"
+            ? "bg-primary/10 text-primary"
+            : "bg-card text-muted-foreground",
       )}
     >
       {check ? <TriangleAlert className="size-3" /> : <Check className="size-3" />}
