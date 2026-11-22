@@ -22,9 +22,12 @@ both databases get the same change:
    - `npm run local:reset` starts from scratch: every migration, then the demo data.
 3. Run `npm run test:db`, then commit the migration together with the code that uses
    it. Teammates pick it up with `git pull` and `npm run local:reset`.
-4. Apply the same file to the shared project with `npx supabase@3.2.0 db push`. It
-   records each migration under its file's version, so the shared project's history
-   keeps matching the repo. The first time, run `npx supabase@3.2.0 login`, then
+4. Apply the same file to the shared project with
+   `npx supabase@3.2.0 db push --remote`. Without `--remote` it targets your local
+   database and just reports "Local database is up to date". Add `--dry-run` first to
+   see which migrations it would apply. It records each migration under its file's
+   version, so the shared project's history keeps matching the repo. The first time,
+   run `npx supabase@3.2.0 login`, then
    `npx supabase@3.2.0 link --project-ref qmvzxgywdibvdburlanw`, which asks for the
    database password. Have one person do this, so a migration isn't applied twice.
 
@@ -35,8 +38,8 @@ about versions it doesn't recognize.
 
 **If someone changes the shared project directly anyway**, capture the change as a
 migration afterwards. Either write one that repeats the change, or generate one from
-the shared project's schema with `npx supabase@3.2.0 db pull` (this also needs the
-project linked). Commit it, then run `npm run local:reset`.
+the shared project's schema with `npx supabase@3.2.0 db pull --remote` (this also
+needs the project linked). Commit it, then run `npm run local:reset`.
 
 **Rows don't copy down.** Only the table structure travels through migrations.
 Recipes and users created on the shared project stay there, and locally you have the
