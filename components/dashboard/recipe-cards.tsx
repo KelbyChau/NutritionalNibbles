@@ -4,10 +4,11 @@
 
 import Link from "next/link";
 import type { Variants } from "motion/react";
-import { ArrowRight, Clock, Dumbbell, Flame, Trash2, Users, UtensilsCrossed, type LucideIcon } from "lucide-react";
+import { Clock, Dumbbell, Flame, Trash2, Users, UtensilsCrossed, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedNumber, fmtCount } from "@/components/animated-number";
-import { BUTTER } from "@/components/optimize/shared";
+import { NutritionRings } from "@/components/nutrition-rings";
+import { nutritionRings } from "@/lib/nutrition-rings";
 import { cn } from "@/lib/utils";
 import type { DashboardRecipe } from "./recipe-dashboard";
 
@@ -38,24 +39,28 @@ export function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
     value: number | null;
     unit: string;
     label: string;
+    tone: string;
   }[] = [
     {
       icon: Flame,
       value: recipe.calories_per_serving,
       unit: " kcal",
       label: "Calories",
+      tone: "bg-nutrient-calories/10 text-nutrient-calories",
     },
     {
       icon: Dumbbell,
       value: recipe.protein_g_per_serving,
       unit: "g",
       label: "Protein",
+      tone: "bg-nutrient-protein/10 text-nutrient-protein",
     },
     {
       icon: UtensilsCrossed,
       value: recipe.ingredient_count,
       unit: "",
       label: "Ingredients",
+      tone: "bg-secondary",
     },
     // Recipes saved from the builder have no cooking time: show "–", not 0.
     {
@@ -63,87 +68,69 @@ export function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
       value: totalMinutes(recipe) || null,
       unit: " min",
       label: "Time",
+      tone: "bg-secondary",
     },
   ];
 
-  // Plate grows with the recipe: a 3-ingredient dish gets a small plate,
-  // a 12+ ingredient one is full size.
-  const count = Math.max(0, recipe.ingredient_count);
-  const blobScale = Math.min(1, 0.55 + count * 0.04);
+  const rings = recipeRings(recipe);
 
   // Long names get a smaller font so they wrap instead of running off.
   const len = recipe.title.length;
   const titleSize =
-    len > 48
-      ? "text-2xl sm:text-3xl"
-      : len > 28
-        ? "text-3xl sm:text-4xl"
-        : "text-4xl sm:text-5xl";
+    len > 48 ? "text-[28px] sm:text-[32px]" : len > 28 ? "text-[32px] sm:text-[40px]" : "text-[36px] sm:text-[48px]";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-4 pt-4 sm:pt-6">
-        <div className="min-w-0">
-          <h2
-            className={cn(
-              "font-display leading-[0.95] tracking-tight [overflow-wrap:anywhere] [text-wrap:balance]",
-              titleSize,
-            )}
-          >
-            {recipe.title}
-          </h2>
-        </div>
-      </div>
-
-      <div className="relative flex min-h-[16rem] flex-1 items-center justify-center py-6">
-        {recipe.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- recipe images can come from any host
-          <img
-            src={recipe.image_url}
-            alt={recipe.title}
-            style={{ maxWidth: `${blobScale * 60}%` }}
-            className="relative aspect-square max-h-[min(24rem,80%)] w-auto rounded-full object-cover shadow-panel"
-          />
-        ) : (
-          <div
-            style={{ width: `clamp(8rem, ${blobScale * 34}%, 16rem)` }}
-            className="relative flex aspect-square items-center justify-center rounded-full bg-card shadow-panel"
-          >
-            <UtensilsCrossed className="size-1/4 text-primary" />
+    <div className="flex min-h-0 flex-1 flex-col gap-4 pt-4">
+      {/* Featured, App Store "Today" style: the recipe and its rings. */}
+      <article className="surface-paper flex flex-1 flex-col overflow-hidden rounded-panel md:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-8 p-7 sm:p-9">
+          <div className="min-w-0">
+            <h2
+              className={cn(
+                "font-semibold leading-[1.05] tracking-[-0.02em] [overflow-wrap:anywhere] [text-wrap:balance]",
+                titleSize,
+              )}
+            >
+              {recipe.title}
+            </h2>
+            <p className="mt-3 flex items-center gap-1.5 text-[15px] text-muted-foreground">
+              <Users className="size-4" />
+              <AnimatedNumber value={recipe.servings} format={fmtCount} />{" "}
+              {recipe.servings === 1 ? "serving" : "servings"}. Estimated, per serving.
+            </p>
           </div>
-        )}
-      </div>
+          <div>
+            <Button asChild size="lg">
+              <Link href={`/optimize?recipe=${recipe.id}`}>Optimize this recipe</Link>
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-center bg-secondary/60 p-8 md:w-[44%]">
+          {recipe.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- recipe images can come from any host
+            <img src={recipe.image_url} alt={recipe.title} className="aspect-square w-full max-w-72 rounded-full object-cover shadow-panel" />
+          ) : (
+            <NutritionRings rings={rings} size={220} stroke={20} gap={4} showLegend={false} testId="rings-featured" />
+          )}
+        </div>
+      </article>
 
-      <div className="surface-paper rounded-3xl bg-card p-4 shadow-panel sm:p-5">
+      <div className="surface-paper rounded-panel p-4 sm:p-5">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {stats.map(({ icon: Icon, value, unit, label }) => (
+          {stats.map(({ icon: Icon, value, unit, label, tone }) => (
             <div key={label} className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+              <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", tone)}>
                 <Icon className="size-4" />
               </span>
               <div className="flex flex-col-reverse">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="font-semibold tabular-nums">
+                <dt className="text-[12px] text-muted-foreground">{label}</dt>
+                <dd className="font-rounded text-[19px] font-semibold tabular-nums">
                   <AnimatedNumber value={value} format={(n) => fmt(n, unit)} />
                 </dd>
               </div>
             </div>
           ))}
         </dl>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Users className="size-3.5" />
-            Per serving,{" "}
-            <AnimatedNumber value={recipe.servings} format={fmtCount} />{" "}
-            servings. Estimated macros.
-          </p>
-          <Button asChild size="sm" className="rounded-full px-4 shadow-none">
-            <Link href={`/optimize?recipe=${recipe.id}`}>
-              Optimize this recipe
-              <ArrowRight />
-            </Link>
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -176,71 +163,55 @@ export function RecipeCard({
         }
       }}
       className={cn(
-        "relative flex h-48 cursor-pointer overflow-hidden rounded-3xl border bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        active
-          ? "border-primary ring-1 ring-primary"
-          : "border-border hover:border-primary hover:ring-1 hover:ring-primary",
+        "relative flex cursor-pointer items-center gap-4 rounded-card bg-card p-3 pr-4 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:shadow-none",
+        active ? "ring-2 ring-primary" : "hover:bg-secondary/60",
       )}
     >
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col p-5">
-        <h3 className="line-clamp-2 font-display text-[1.75rem] leading-[1.02] tracking-tight">
-          {recipe.title}
-        </h3>
-        <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-          {/* Saved recipes have no cooking time; skip it rather than "0 minutes". */}
-          {totalMinutes(recipe) > 0 && (
-            <>
-              <Clock className="size-3.5" aria-hidden />
-              <span className="whitespace-nowrap">
-                {totalMinutes(recipe)} minutes
-              </span>
-            </>
-          )}
-          {recipe.protein_g_per_serving !== null && (
-            <>
-              {totalMinutes(recipe) > 0 && <span aria-hidden>·</span>}
-              <span className="whitespace-nowrap">
-                {Math.round(recipe.protein_g_per_serving)}g protein
-              </span>
-            </>
-          )}
-        </p>
-        {onDelete && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            onKeyDown={(e) => e.stopPropagation()}
-            aria-label={`Delete ${recipe.title} from saved recipes`}
-            title="Delete recipe"
-            className="mt-auto flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        )}
-      </div>
-
-      <div className="relative w-[42%] shrink-0">
+      <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-secondary">
         {recipe.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- recipe images can come from any host
-          <img
-            src={recipe.image_url}
-            alt=""
-            className="absolute -right-6 top-1/2 size-44 -translate-y-1/2 rounded-full object-cover"
-          />
+          <img src={recipe.image_url} alt="" className="size-full object-cover" />
         ) : (
-          <div
-            className={cn(
-              "absolute -right-6 top-1/2 flex size-44 -translate-y-1/2 items-center justify-center rounded-full",
-              BUTTER,
-            )}
-          >
-            <UtensilsCrossed className="size-10 text-primary" />
-          </div>
+          <UtensilsCrossed className="size-6 text-primary" />
         )}
       </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="line-clamp-2 text-[17px] font-semibold leading-snug tracking-[-0.01em]">{recipe.title}</h3>
+        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px] font-medium">
+          {/* Saved recipes have no cooking time; skip it rather than "0 minutes". */}
+          {totalMinutes(recipe) > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-muted-foreground">
+              <Clock className="size-3" aria-hidden />
+              {totalMinutes(recipe)} min
+            </span>
+          )}
+          {recipe.protein_g_per_serving !== null && (
+            <span className="rounded-full bg-nutrient-protein/10 px-2 py-0.5 text-nutrient-protein">
+              {Math.round(recipe.protein_g_per_serving)}g protein
+            </span>
+          )}
+          {recipe.calories_per_serving !== null && (
+            <span className="rounded-full bg-nutrient-calories/10 px-2 py-0.5 text-nutrient-calories">
+              {Math.round(recipe.calories_per_serving)} kcal
+            </span>
+          )}
+        </p>
+      </div>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+          aria-label={`Delete ${recipe.title} from saved recipes`}
+          title="Delete recipe"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      )}
     </article>
   );
 }
@@ -254,22 +225,18 @@ export function EmptyState({
 }) {
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center py-16 text-center">
-      <div
-        aria-hidden
-        className={cn(
-          "absolute size-72 rounded-[58%_42%_47%_53%/45%_52%_48%_55%] opacity-60",
-          BUTTER,
-        )}
-      />
       <div className="relative max-w-sm">
-        <h2 className="font-display text-4xl leading-tight">
+        <span aria-hidden className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-primary/10">
+          <UtensilsCrossed className="size-7 text-primary" />
+        </span>
+        <h2 className="text-[28px] font-semibold leading-tight tracking-[-0.015em]">
           {loadError
             ? "Couldn't load recipes"
             : hasRecipes
               ? "Nothing matches"
               : "No recipes yet"}
         </h2>
-        <p className="mt-3 text-muted-foreground">
+        <p className="mt-2 text-[17px] text-muted-foreground">
           {loadError
             ? loadError
             : hasRecipes
@@ -277,16 +244,26 @@ export function EmptyState({
               : "Create your first recipe and it will show up here."}
         </p>
         {!hasRecipes && !loadError && (
-          <Button asChild className="mt-6 rounded-full px-6 shadow-none">
-            <Link href="/optimize">
-              Create a recipe
-              <ArrowRight />
-            </Link>
+          <Button asChild size="lg" className="mt-6">
+            <Link href="/optimize">Create a recipe</Link>
           </Button>
         )}
       </div>
     </div>
   );
+}
+
+// Rings for a saved recipe, from its per-serving numbers.
+function recipeRings(recipe: DashboardRecipe) {
+  const perServing = {
+    kcal: recipe.calories_per_serving,
+    protein: recipe.protein_g_per_serving,
+    carbs: recipe.carbohydrates_g_per_serving,
+    fat: recipe.fat_g_per_serving,
+    satFat: null, fiber: null, sugar: null, sodium: null, cholesterol: null,
+  };
+  const counted = Object.fromEntries(Object.keys(perServing).map((k) => [k, 1])) as Record<keyof typeof perServing, number>;
+  return nutritionRings(perServing, counted, 1);
 }
 
 export function fmt(value: number | null, unit: string) {

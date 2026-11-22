@@ -19,7 +19,6 @@ import { useAllRecipes } from "@/components/dashboard/use-all-recipes";
 import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
 import { deleteMyRecipe } from "@/lib/my-recipes";
 import { cn } from "@/lib/utils";
-import { BUTTER } from "@/components/optimize/shared";
 import { cardExit, EmptyState, FeaturedRecipe, RecipeCard, totalMinutes } from "./recipe-cards";
 
 // Same shape listRecipes() returns for each recipe.
@@ -147,15 +146,15 @@ export function RecipeDashboard({
   return (
     <div className="flex min-h-screen flex-col bg-background lg:h-screen lg:overflow-hidden">
       {/* Top bar */}
-      <header className="flex flex-wrap items-center gap-4 px-4 pb-2 pt-5 sm:px-6 lg:px-8">
+      <header className="surface-glass sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-3 sm:px-6 lg:static lg:border-0 lg:bg-transparent lg:px-8 lg:pt-5 lg:backdrop-blur-none">
         <Link
           href="/"
           aria-label="NutritionalNibbles home"
-          className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary font-display text-3xl leading-none text-primary-foreground"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-primary text-[20px] font-semibold leading-none text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           N
         </Link>
-        <h1 className="mr-auto font-display text-3xl leading-none tracking-tight sm:text-4xl">
+        <h1 className="mr-auto text-[22px] font-semibold tracking-[-0.01em] sm:text-[28px]">
           Recipe Dashboard
         </h1>
         <label className="relative order-last w-full sm:order-none sm:w-72">
@@ -166,13 +165,11 @@ export function RecipeDashboard({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search recipes"
-            className="h-11 w-full rounded-full border border-border bg-card pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 w-full rounded-full bg-secondary pl-10 pr-4 text-[15px] outline-none placeholder:text-muted-foreground focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring"
           />
         </label>
-        <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
-          <ThemeSwitcher />
-        </div>
-        <Button asChild className="h-11 rounded-full px-5 shadow-none">
+        <ThemeSwitcher />
+        <Button asChild className="h-11 px-5">
           <Link href="/optimize">
             <Plus />
             Create a recipe
@@ -197,14 +194,14 @@ export function RecipeDashboard({
                   type="button"
                   onClick={() => setCategory(key)}
                   aria-pressed={active}
-                  className="group flex shrink-0 flex-col items-center gap-1.5 text-xs"
+                  className="group flex shrink-0 flex-col items-center gap-1.5 text-[12px] focus-visible:outline-none"
                 >
                   <span
                     className={cn(
-                      "flex size-12 items-center justify-center rounded-full border transition-colors",
+                      "flex size-12 items-center justify-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring",
                       active
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card group-hover:border-foreground/40",
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06)] group-hover:bg-secondary",
                     )}
                   >
                     <Icon className="size-5" />
@@ -224,8 +221,7 @@ export function RecipeDashboard({
               <span
                 title={userEmail ?? undefined}
                 className={cn(
-                  "flex size-12 items-center justify-center rounded-full font-display text-2xl uppercase text-foreground",
-                  BUTTER,
+                  "flex size-12 items-center justify-center rounded-full bg-secondary text-[20px] font-semibold uppercase text-foreground",
                 )}
               >
                 {userEmail?.[0] ?? "?"}
@@ -272,13 +268,13 @@ export function RecipeDashboard({
           aria-label="All recipes"
           className="flex min-h-0 shrink-0 flex-col lg:w-[22rem] xl:w-[24rem]"
         >
-          <p className="mb-3 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+          <p className="mb-3 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
             <span>
               <AnimatedNumber value={visible.length} format={fmtCount} />{" "}
               {visible.length === 1 ? "recipe" : "recipes"}
             </span>
           </p>
-          <ul className="flex min-h-0 flex-1 flex-col gap-4 lg:overflow-y-auto lg:pb-2 lg:pr-1">
+          <ul className="flex min-h-0 flex-1 flex-col gap-2.5 lg:overflow-y-auto lg:pb-2 lg:pr-1">
             {/* A deleted card fades and collapses; the cards below slide up
                 to close the gap. */}
             <AnimatePresence initial={false} custom={deleted}>
@@ -317,4 +313,4 @@ export function RecipeDashboard({
 
 
 const chipClass =
-  "inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40 data-[state=open]:border-foreground/40";
+  "inline-flex h-10 items-center gap-2 rounded-full bg-card px-4 text-[15px] shadow-[0_1px_2px_rgb(0_0_0/0.06)] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-secondary";
