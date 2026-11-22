@@ -12,8 +12,11 @@ export async function AuthButton() {
   const user = data?.claims;
 
   return user ? (
-    <div className="flex items-center gap-4">
-      Hey, {user.email}!
+    <div className="flex min-w-0 items-center gap-4">
+      {/* The greeting needs room; on narrow screens only the button shows. */}
+      <span className="hidden max-w-[24ch] truncate lg:inline">
+        Hey, {user.email}!
+      </span>
       <LogoutButton />
     </div>
   ) : (

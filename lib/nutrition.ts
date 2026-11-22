@@ -325,6 +325,11 @@ export type IngredientNutrition = {
 export type RecipeNutrition = {
   total: Nutrients;
   perServing: Nutrients;
+  knownCalories: { total: number | null; perServing: number | null; counted: number };
+  // Like knownCalories, for every nutrient: the sum over the ingredients that
+  // have a value for it (null when none do), and how many that was. One food
+  // with no USDA protein value no longer makes the recipe's protein unknown.
+  known: { total: Nutrients; perServing: Nutrients; counted: Record<keyof Nutrients, number> };
   items: IngredientNutrition[];
   counted: number;
   skipped: IngredientNutrition[];
@@ -410,7 +415,8 @@ export function calculateNutrition(
       };
     const per100 = ing.food
       ? [ing.food.kcal_per_100g, ing.food.protein_per_100g, ing.food.carbs_per_100g,
-         ing.food.fat_per_100g, null, null, null, null, null]
+         ing.food.fat_per_100g, null, null, ing.food.total_sugars_g_per_100g ?? null,
+         ing.food.sodium_mg_per_100g ?? null, null]
       : match!.food.per100;
     const [kcal, protein, carbs, fat, satFat, fiber, sugar, sodium, cholesterol] =
       per100.map(value => value === null ? null : value * grams / 100);
@@ -422,24 +428,40 @@ export function calculateNutrition(
     };
   });
 
+  const keys = Object.keys(zero) as (keyof Nutrients)[];
   const total: Nutrients = { ...zero };
+  const knownTotal: Nutrients = { ...zero };
+  const counted = Object.fromEntries(keys.map((k) => [k, 0])) as Record<keyof Nutrients, number>;
   for (const item of items) {
     if (!item.nutrients) continue; // Skipped items are explicitly listed in the panel.
-    for (const key of Object.keys(total) as (keyof Nutrients)[]) {
+    for (const key of keys) {
       const running = total[key];
       const contribution = item.nutrients[key];
       total[key] = running === null || contribution === null ? null : running + contribution;
+      if (contribution !== null) {
+        knownTotal[key] = knownTotal[key]! + contribution;
+        counted[key]++;
+      }
     }
   }
+  for (const key of keys) if (!counted[key]) knownTotal[key] = null;
 
   const s = Math.max(1, servings);
-  const perServing = Object.fromEntries(
-    Object.entries(total).map(([k, v]) => [k, v === null ? null : v / s]),
+  const divide = (n: Nutrients) => Object.fromEntries(
+    Object.entries(n).map(([k, v]) => [k, v === null ? null : v / s]),
   ) as Nutrients;
+  const perServing = divide(total);
+  const knownPerServing = divide(knownTotal);
 
   return {
     total,
     perServing,
+    knownCalories: {
+      total: knownTotal.kcal,
+      perServing: knownPerServing.kcal,
+      counted: counted.kcal,
+    },
+    known: { total: knownTotal, perServing: knownPerServing, counted },
     items,
     counted: items.filter((i) => i.nutrients).length,
     skipped: items.filter((i) => !i.nutrients),

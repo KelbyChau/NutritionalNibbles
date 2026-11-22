@@ -7,6 +7,11 @@
 import Image from "next/image";
 import { useEffect, useId, useState } from "react";
 import {
+  AnimatedNumber,
+  fmtCount,
+  fmtPercent,
+} from "@/components/animated-number";
+import {
   ArrowUp,
   Droplet,
   Dumbbell,
@@ -91,8 +96,6 @@ export const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
 
 // ---- USDA catalog ------------------------------------------------------------
 
-const FOOD_COLUMNS =
-  "fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g";
 const PAGE = 1000; // Supabase returns at most 1,000 rows per request
 
 // Every USDA food the app can use, from both catalogs: Foundation Foods
@@ -108,7 +111,7 @@ export function useUsdaFoods() {
       try {
         const supabase = createClient();
         const [foundation, legacyCount] = await Promise.all([
-          supabase.from("foundation_foods").select(FOOD_COLUMNS).order("fdc_id"),
+          supabase.from("foundation_foods").select().order("fdc_id"),
           supabase.from("sr_legacy_foods").select("fdc_id", { count: "exact", head: true }),
         ]);
         if (foundation.error || !foundation.data?.length || legacyCount.error)
@@ -117,7 +120,7 @@ export function useUsdaFoods() {
           Array.from({ length: Math.ceil((legacyCount.count ?? 0) / PAGE) }, (_, i) =>
             supabase
               .from("sr_legacy_foods")
-              .select(FOOD_COLUMNS)
+              .select()
               .order("fdc_id")
               .range(i * PAGE, (i + 1) * PAGE - 1),
           ),
@@ -205,6 +208,8 @@ export function loadDraft(): OptimizeDraft | null {
 
 // ---- Small UI pieces ---------------------------------------------------------
 
+export { AnimatedNumber, fmtCount, fmtPercent };
+
 export function IngredientArt({
   ingredient,
   sizeRem,
@@ -222,7 +227,11 @@ export function IngredientArt({
       height={224}
       unoptimized
       style={{ width: `${sizeRem}rem`, height: `${sizeRem}rem` }}
-      className={cn("object-contain", className)}
+      // Grows/shrinks smoothly when it moves to a bigger or smaller plate spot.
+      className={cn(
+        "object-contain transition-[width,height] duration-300 ease-out motion-reduce:transition-none",
+        className,
+      )}
     />
   );
 }
@@ -231,11 +240,15 @@ export function Stat({
   icon: Icon,
   label,
   value,
+  number,
   muted,
 }: {
   icon: LucideIcon;
   label: string;
-  value: string;
+  /** Shown as-is; ignored when `number` is given. */
+  value?: string;
+  /** Rolls to each new value (see AnimatedNumber). */
+  number?: { value: number | null; format: (n: number | null) => string };
   muted?: boolean;
 }) {
   return (
@@ -251,7 +264,7 @@ export function Stat({
             muted && "font-normal text-muted-foreground",
           )}
         >
-          {value}
+          {number ? <AnimatedNumber {...number} /> : value}
         </dd>
       </div>
     </div>
@@ -415,7 +428,7 @@ export function Combobox<
             onClick={() => pick(value)}
             aria-label="Send"
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-40",
+              "flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors disabled:bg-muted disabled:text-muted-foreground",
               size === "lg" ? "size-11" : "size-9",
             )}
           >
@@ -426,7 +439,7 @@ export function Combobox<
             type="button"
             disabled={!value.trim()}
             onClick={() => pick(value)}
-            className="h-9 shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40"
+            className="h-9 shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors disabled:bg-muted disabled:text-muted-foreground"
           >
             Add
           </button>
@@ -471,7 +484,13 @@ export function NutritionPanel({
   showZeros?: boolean;
 }) {
   const [scope, setScope] = useState<"serving" | "recipe">("serving");
-  const n = scope === "serving" ? nutrition.perServing : nutrition.total;
+  // Subtotals over the ingredients that have data, marked † when some don't.
+  const n = scope === "serving" ? nutrition.known.perServing : nutrition.known.total;
+  const partial = (key: keyof Nutrients) =>
+    n[key] === null || nutrition.known.counted[key] < nutrition.counted;
+  const calories = scope === "serving" ? nutrition.knownCalories.perServing : nutrition.knownCalories.total;
+  const calorieCount = nutrition.knownCalories.counted;
+  const partialCalories = calorieCount > 0 && calorieCount < nutrition.items.length;
 
   // Share of calories from each macro (4/4/9 kcal per gram).
   const hasMacroSplit =
@@ -535,9 +554,19 @@ export function NutritionPanel({
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          {servings} {servings === 1 ? "serving" : "servings"} per recipe
-          {hasIngredients &&
-            ` · ${nutrition.counted} of ${nutrition.items.length} ingredients counted`}
+          <AnimatedNumber value={servings} format={fmtCount} />{" "}
+          {servings === 1 ? "serving" : "servings"} per recipe
+          {hasIngredients && (
+            <>
+              {" · "}
+              <AnimatedNumber value={nutrition.counted} format={fmtCount} /> of{" "}
+              <AnimatedNumber
+                value={nutrition.items.length}
+                format={fmtCount}
+              />{" "}
+              ingredients counted
+            </>
+          )}
         </p>
 
         {(hasIngredients ? nutrition.counted === 0 : !showZeros) ? (
@@ -552,12 +581,20 @@ export function NutritionPanel({
           <>
             {/* Calories */}
             <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
-              <span className="text-lg font-bold">Calories</span>
-              <span className="font-display text-5xl leading-none tabular-nums">
-                {Math.round(n.kcal ?? 0)}
-                {n.kcal === null && <sup className="text-xs">†</sup>}
-              </span>
+              <span className="text-lg font-bold">{partialCalories ? "Known calories" : "Calories"}</span>
+              {calories === null && hasIngredients ? (
+                <span className="text-sm text-muted-foreground">Unavailable</span>
+              ) : (
+                <span className="font-display text-5xl leading-none tabular-nums">
+                  <AnimatedNumber value={calories ?? 0} format={fmtCount} />
+                </span>
+              )}
             </div>
+            {partialCalories && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Calorie subtotal for {calorieCount} of {nutrition.items.length} ingredients.
+              </p>
+            )}
 
             {/* Macro split */}
             {hasMacroSplit && macroSum > 0 && (
@@ -566,7 +603,10 @@ export function NutritionPanel({
                   {split.map((m) => (
                     <div
                       key={m.key}
-                      className={m.color}
+                      className={cn(
+                        m.color,
+                        "transition-[width] duration-300 ease-out motion-reduce:transition-none",
+                      )}
                       style={{ width: `${(m.kcal / macroSum) * 100}%` }}
                     />
                   ))}
@@ -577,7 +617,10 @@ export function NutritionPanel({
                       <span className={cn("size-2 rounded-full", m.color)} />
                       {m.label}{" "}
                       <span className="tabular-nums text-muted-foreground">
-                        {Math.round((m.kcal / macroSum) * 100)}%
+                        <AnimatedNumber
+                          value={(m.kcal / macroSum) * 100}
+                          format={fmtPercent}
+                        />
                       </span>
                     </li>
                   ))}
@@ -606,14 +649,22 @@ export function NutritionPanel({
                         {row.label}
                       </span>{" "}
                       <span className="tabular-nums">
-                        {fmtNutrient(value ?? 0, row.unit)}
-                        {value === null && <sup>†</sup>}
+                        <AnimatedNumber
+                          value={value ?? 0}
+                          format={(v) => fmtNutrient(v, row.unit)}
+                        />
+                        {partial(row.key) && <sup>†</sup>}
                       </span>
                     </dt>
                     <dd className="font-semibold tabular-nums">
-                      {dv && value !== null
-                        ? `${Math.round((value / dv) * 100)}%`
-                        : ""}
+                      {dv && value !== null ? (
+                        <AnimatedNumber
+                          value={(value / dv) * 100}
+                          format={fmtPercent}
+                        />
+                      ) : (
+                        ""
+                      )}
                     </dd>
                   </div>
                 );
@@ -653,14 +704,22 @@ export function NutritionPanel({
                     <span className="min-w-0">
                       <span className="block truncate">{i.name}</span>
                       <span className="block text-[11px] text-muted-foreground">
-                        {i.grams !== null
-                          ? `${Math.round(i.grams)} g`
-                          : "not counted"}
+                        {i.grams !== null ? (
+                          <AnimatedNumber
+                            value={i.grams}
+                            format={(g) => `${fmtCount(g)} g`}
+                          />
+                        ) : (
+                          "not counted"
+                        )}
                         {i.note && ` · ${i.note}`}
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums">
-                      {formatCalories(i.nutrients?.kcal ?? 0)}
+                      <AnimatedNumber
+                        value={i.nutrients?.kcal ?? 0}
+                        format={formatCalories}
+                      />
                       {i.nutrients?.kcal == null && <sup>†</sup>}
                     </span>
                   </li>
@@ -671,8 +730,9 @@ export function NutritionPanel({
         )}
 
         <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
-          * % Daily Value is based on a 2,000-calorie diet. † Zero is a
-          placeholder where nutrition data is unavailable.
+          * % Daily Value is based on a 2,000-calorie diet. † Some ingredients
+          have no USDA data for this nutrient, so it counts only the ones that
+          do (0 when none do).
         </p>
       </div>
     </section>

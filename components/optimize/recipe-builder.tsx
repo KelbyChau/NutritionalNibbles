@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Dumbbell,
   Flame,
@@ -30,6 +31,8 @@ import {
   IngredientArt,
   NutritionPanel,
   Stat,
+  AnimatedNumber,
+  fmtCount,
   fmtNutrient,
   formatCalories,
   ingredientOptions,
@@ -253,17 +256,19 @@ function RecipeBuilderPage() {
         />
         <Link
           href="/dashboard"
+          aria-label="Saved recipes"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
         >
-          <LayoutGrid className="size-4" />
-          <span className="hidden sm:inline">Dashboard</span>
+          <LayoutGrid className="size-4" aria-hidden />
+          <span className="hidden sm:inline">Saved recipes</span>
         </Link>
         {/* UI only for now: no import behavior yet. */}
         <button
           type="button"
+          aria-label="Import a recipe"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
         >
-          <Import className="size-4" />
+          <Import className="size-4" aria-hidden />
           <span className="hidden sm:inline">Import</span>
         </button>
         <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
@@ -273,7 +278,7 @@ function RecipeBuilderPage() {
           onClick={optimize}
           disabled={!ingredients.length}
           title={ingredients.length ? undefined : "Add ingredients first"}
-          className="h-11 rounded-full px-5 shadow-none"
+          className="h-11 rounded-full px-5 shadow-none disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
         >
           <WandSparkles />
           Optimize
@@ -298,25 +303,29 @@ function RecipeBuilderPage() {
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat
                 icon={Flame}
-                label="Calories / serving"
-                value={
-                  !ingredients.length
-                    ? "0 kcal"
-                    : nutrition.counted
-                      ? formatCalories(nutrition.perServing.kcal)
-                      : "–"
-                }
+                label={nutrition.knownCalories.counted > 0 &&
+                  nutrition.knownCalories.counted < nutrition.items.length
+                  ? "Known calories / serving"
+                  : "Calories / serving"}
+                number={{
+                  value: !ingredients.length ? 0 : nutrition.knownCalories.perServing,
+                  format: (n) => (n === null ? "Unavailable" : formatCalories(n)),
+                }}
               />
               <Stat
                 icon={Dumbbell}
-                label="Protein / serving"
-                value={
-                  !ingredients.length
-                    ? "0 g"
+                label={nutrition.known.counted.protein > 0 &&
+                  nutrition.known.counted.protein < nutrition.items.length
+                  ? "Known protein / serving"
+                  : "Protein / serving"}
+                number={{
+                  value: !ingredients.length
+                    ? 0
                     : nutrition.counted
-                      ? fmtNutrient(nutrition.perServing.protein, "g")
-                      : "–"
-                }
+                      ? nutrition.known.perServing.protein
+                      : null,
+                  format: (n) => (n === null && !nutrition.counted ? "–" : fmtNutrient(n, "g")),
+                }}
               />
               <div className="flex items-center gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -333,7 +342,7 @@ function RecipeBuilderPage() {
                     >
                       <Minus className="size-3" />
                     </button>
-                    {servings}
+                    <AnimatedNumber value={servings} format={fmtCount} />
                     <button
                       type="button"
                       aria-label="More servings"
@@ -348,7 +357,7 @@ function RecipeBuilderPage() {
               <Stat
                 icon={UtensilsCrossed}
                 label="Ingredients"
-                value={`${ingredients.length}`}
+                number={{ value: ingredients.length, format: fmtCount }}
               />
             </dl>
           </div>
@@ -376,9 +385,14 @@ function RecipeBuilderPage() {
             </p>
           )}
           <p className="mb-3 mt-4 text-sm text-muted-foreground">
-            {ingredients.length
-              ? `${ingredients.length} ${ingredients.length === 1 ? "ingredient" : "ingredients"}`
-              : "No ingredients yet"}
+            {ingredients.length ? (
+              <>
+                <AnimatedNumber value={ingredients.length} format={fmtCount} />{" "}
+                {ingredients.length === 1 ? "ingredient" : "ingredients"}
+              </>
+            ) : (
+              "No ingredients yet"
+            )}
           </p>
           <ul className="flex min-h-0 flex-1 flex-col gap-3 xl:overflow-y-auto xl:pb-2 xl:pr-1">
             {ingredients.map((i) => (
@@ -468,37 +482,62 @@ function Stage({
               BUTTER,
             )}
           />
-          {shown.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-[hsl(230_50%_16%)]">
-              <span className="text-7xl" aria-hidden>
-                🍽️
-              </span>
-              <p className="mt-3 max-w-[18ch] font-display text-2xl leading-tight">
-                Add ingredients and they show up here
-              </p>
-            </div>
-          ) : (
-            shown.map((ing, idx) => {
-              const spot = spots[idx];
-              return (
-                <div
-                  key={ing.id}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${spot.left}%`, top: `${spot.top}%` }}
-                  title={ing.name}
+          {/* New ingredients pop onto the plate, removed ones shrink away, and
+              the rest glide to their new spot (CSS transition on left/top).
+              Centering uses motion's x/y so it composes with the scale. */}
+          <AnimatePresence initial={false}>
+            {shown.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 flex flex-col items-center justify-center text-center text-[hsl(230_50%_16%)]"
+              >
+                <span
+                  aria-hidden
+                  className="flex size-20 items-center justify-center rounded-full bg-card shadow-[0_12px_24px_-16px_hsl(230_60%_15%/0.5)]"
                 >
-                  {/* animation on an inner element so it doesn't fight the centering transform */}
-                  <div className="duration-300 animate-in fade-in zoom-in-50">
+                  <UtensilsCrossed className="size-9 text-primary" />
+                </span>
+                <p className="mt-3 max-w-[18ch] font-display text-2xl leading-tight">
+                  Add ingredients and they show up here
+                </p>
+              </motion.div>
+            ) : (
+              shown.map((ing, idx) => {
+                const spot = spots[idx];
+                return (
+                  <motion.div
+                    key={ing.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.9,
+                      transition: { duration: 0.15, ease: [0.4, 0, 1, 1] },
+                    }}
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    className="absolute transition-[left,top] duration-300 ease-out motion-reduce:transition-none"
+                    style={{
+                      left: `${spot.left}%`,
+                      top: `${spot.top}%`,
+                      x: "-50%",
+                      y: "-50%",
+                    }}
+                    title={ing.name}
+                  >
                     <IngredientArt
                       ingredient={ing}
                       sizeRem={spot.size}
                       className="drop-shadow-[0_12px_14px_hsl(230_60%_15%/0.3)]"
                     />
-                  </div>
-                </div>
-              );
-            })
-          )}
+                  </motion.div>
+                );
+              })
+            )}
+          </AnimatePresence>
           {ingredients.length > spots.length && (
             <span className="absolute bottom-2 right-2 rounded-full bg-card px-3 py-1 text-xs">
               +{ingredients.length - spots.length} more
@@ -623,7 +662,7 @@ function AddIngredient({
           {o.emoji}
         </span>
       )}
-      placeholder="Add an ingredient, e.g. 200g chicken"
+      placeholder="Add ingredient, e.g. 200g rice"
       label="Add an ingredient"
       leading={<Plus className="size-4 text-primary" />}
       error={error}
