@@ -19,7 +19,7 @@ import {
 import { SaveButton } from "@/components/save-button";
 import { saveMyRecipe } from "@/lib/my-recipes";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { calculateNutrition, type Nutrients } from "@/lib/nutrition";
+import { calculateNutrition, type Nutrients, type RecipeNutrition } from "@/lib/nutrition";
 import {
   exactFood,
   foodLabel,
@@ -99,8 +99,8 @@ function OptimizeChatPage() {
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
   const [servings, setServings] = useState(2);
-  const [original, setOriginal] = useState<Ingredient[]>([]);
-  const [current, setCurrent] = useState<Ingredient[]>([]);
+  const [originalDraft, setOriginal] = useState<Ingredient[]>([]);
+  const [currentDraft, setCurrent] = useState<Ingredient[]>([]);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [history, setHistory] = useState<Ingredient[][]>([]);
   const [goal, setGoal] = useState<GoalKey | null>(null);
@@ -110,6 +110,15 @@ function OptimizeChatPage() {
   const checkingSwapsRef = useRef(false);
   const nextId = useRef(1);
   const logEnd = useRef<HTMLDivElement>(null);
+
+  const catalogById = useMemo(() => new Map(foods.map((food) => [food.fdc_id, food])), [foods]);
+  const original = useMemo(() => refreshDraftFoods(originalDraft, catalogById), [originalDraft, catalogById]);
+  const current = useMemo(
+    () => currentDraft === originalDraft || currentDraft === original
+      ? original
+      : refreshDraftFoods(currentDraft, catalogById),
+    [currentDraft, originalDraft, original, catalogById],
+  );
 
   const before = useMemo(
     () => calculateNutrition(original, servings),
@@ -682,8 +691,9 @@ function OptimizeChatPage() {
           className="flex min-h-0 shrink-0 flex-col gap-4 xl:w-[21rem]"
         >
           <Comparison
-            before={before.perServing}
-            now={now.perServing}
+            before={before}
+            now={now}
+            servings={servings}
             goal={goal}
           />
           <div className="surface-paper flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-card p-4">
@@ -933,20 +943,44 @@ function IconButton({
   );
 }
 
+function refreshDraftFoods(ingredients: Ingredient[], byId: Map<number, FoundationFood>) {
+  return byId.size ? ingredients.map((ingredient) => {
+    const food = byId.get(ingredient.food.fdc_id);
+    return food ? { ...ingredient, food } : ingredient;
+  }) : ingredients;
+}
+
+function perServingComparison(nutrition: RecipeNutrition, key: keyof Nutrients, servings: number) {
+  let total = 0;
+  let counted = 0;
+  for (const item of nutrition.items) {
+    const value = item.nutrients?.[key];
+    if (value == null) continue;
+    total += value;
+    counted++;
+  }
+  return {
+    value: counted || !nutrition.items.length ? total / servings : null,
+    partial: counted > 0 && counted < nutrition.items.length,
+  };
+}
+
 function Comparison({
   before,
   now,
+  servings,
   goal,
 }: {
-  before: Nutrients;
-  now: Nutrients;
+  before: RecipeNutrition;
+  now: RecipeNutrition;
+  servings: number;
   goal: GoalKey | null;
 }) {
   const rows: {
     key: keyof Nutrients;
     label: string;
     unit: string;
-    goal: GoalKey;
+    goal?: GoalKey;
     better: "up" | "down";
   }[] = [
     {
@@ -965,7 +999,14 @@ function Comparison({
     },
     { key: "carbs", label: "Carbs", unit: " g", goal: "carbs", better: "down" },
     { key: "fat", label: "Fat", unit: " g", goal: "fat", better: "down" },
+    { key: "sugar", label: "Total sugars", unit: " g", better: "down" },
+    { key: "sodium", label: "Sodium", unit: " mg", better: "down" },
   ];
+  const comparison = rows.map((row) => ({
+    ...row,
+    before: perServingComparison(before, row.key, servings),
+    now: perServingComparison(now, row.key, servings),
+  }));
   return (
     <section className="surface-paper rounded-3xl border border-border bg-card p-4">
       <div className="flex items-baseline justify-between">
@@ -973,15 +1014,18 @@ function Comparison({
         <span className="text-[11px] text-muted-foreground">per serving</span>
       </div>
       <dl className="mt-3 flex flex-col">
-        {rows.map((r) => {
-          const a = before[r.key];
-          const b = now[r.key];
-          const d = a === null || b === null ? null : b - a;
+        {comparison.map((r) => {
+          const a = r.before.value;
+          const b = r.now.value;
+          const wholeNumber = r.key === "kcal" || r.key === "sodium";
+          const display = (value: number) => formatAmount.format(wholeNumber ? Math.round(value) : value);
+          const d = a === null || b === null || r.before.partial || r.now.partial ? null : b - a;
+          const threshold = wholeNumber ? 0.5 : 0.005;
           const good =
             d !== null &&
-            Math.abs(d) >= 0.5 &&
+            Math.abs(d) >= threshold &&
             (r.better === "up" ? d > 0 : d < 0);
-          const bad = d !== null && Math.abs(d) >= 0.5 && !good;
+          const bad = d !== null && Math.abs(d) >= threshold && !good;
           return (
             <div
               key={r.key}
@@ -999,9 +1043,9 @@ function Comparison({
                 )}
               </dt>
               <dd className="tabular-nums text-muted-foreground">
-                {a === null ? "—" : Math.round(a)} →{" "}
+                {a === null ? "—" : display(a)}{r.before.partial && <sup>†</sup>} →{" "}
                 <span className="text-foreground">
-                  {b === null ? "—" : Math.round(b)}
+                  {b === null ? "—" : display(b)}{r.now.partial && <sup>†</sup>}
                   {r.unit}
                 </span>
               </dd>
@@ -1015,14 +1059,19 @@ function Comparison({
               >
                 {d === null
                   ? ""
-                  : Math.abs(d) < 0.5
+                  : Math.abs(d) < threshold
                     ? "same"
-                    : `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))}`}
+                    : `${d > 0 ? "+" : "−"}${display(Math.abs(d))}`}
               </dd>
             </div>
           );
         })}
       </dl>
+      {comparison.some((row) => row.before.partial || row.now.partial) && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          † Subtotal. Some ingredients lack data for that nutrient.
+        </p>
+      )}
     </section>
   );
 }
