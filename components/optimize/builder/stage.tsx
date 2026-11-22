@@ -5,7 +5,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BUTTER, IngredientArt, type Ingredient } from "../shared";
+import { IngredientArt, type Ingredient } from "../shared";
 
 // Where ingredient art sits on the stage, in % of the stage box. The first
 // ingredient takes the big center spot; the rest scatter around it.
@@ -47,7 +47,7 @@ export function Stage({
         aria-invalid={nameMissing || undefined}
         aria-describedby={nameMissing ? "dish-name-error" : undefined}
         className={cn(
-          "relative z-10 w-full max-w-[70%] border-b-2 border-transparent bg-transparent font-display text-4xl leading-tight tracking-tight outline-none placeholder:text-muted-foreground/60 sm:text-5xl",
+          "relative z-10 w-full rounded-xl border-b-2 border-transparent bg-transparent text-[clamp(1.5rem,5vw,3rem)] font-semibold leading-tight tracking-[-0.02em] outline-none placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring",
           nameMissing && "border-destructive placeholder:text-destructive/70",
         )}
       />
@@ -61,13 +61,12 @@ export function Stage({
         </p>
       )}
       <div className="absolute inset-0 top-14 flex items-center justify-center">
-        {/* the "plate": butter blob from the landing hero */}
+        {/* the plate: a white dish on the gray canvas */}
         <div className="relative aspect-square h-full max-h-[30rem] max-w-full">
           <div
             aria-hidden
             className={cn(
-              "absolute inset-[4%] rounded-[58%_42%_47%_53%/45%_52%_48%_55%]",
-              BUTTER,
+              "absolute inset-[4%] rounded-full bg-card shadow-lift ring-1 ring-border/50 dark:shadow-none",
             )}
           />
           {/* New ingredients pop onto the plate, removed ones shrink away, and
@@ -85,11 +84,11 @@ export function Stage({
               >
                 <span
                   aria-hidden
-                  className="flex size-20 items-center justify-center rounded-full bg-card shadow-panel"
+                  className="flex size-20 items-center justify-center rounded-full bg-primary/10"
                 >
                   <UtensilsCrossed className="size-9 text-primary" />
                 </span>
-                <p className="mt-3 max-w-[18ch] font-display text-2xl leading-tight">
+                <p className="mt-4 max-w-[20ch] text-[21px] font-semibold leading-snug tracking-[-0.01em]">
                   Add ingredients and they show up here
                 </p>
               </motion.div>
@@ -127,7 +126,7 @@ export function Stage({
             )}
           </AnimatePresence>
           {ingredients.length > spots.length && (
-            <span className="absolute bottom-2 right-2 rounded-full bg-card px-3 py-1 text-xs">
+            <span className="absolute bottom-2 right-2 rounded-full bg-secondary px-3 py-1 text-[12px] font-medium">
               +{ingredients.length - spots.length} more
             </span>
           )}

@@ -7,7 +7,7 @@ import { Plus, X } from "lucide-react";
 import { parseIngredient } from "@/lib/ingredients";
 import { exactFood, type UsdaFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
-import { BUTTER, IngredientArt, type Ingredient } from "../shared";
+import { IngredientArt, type Ingredient } from "../shared";
 import { Combobox } from "../combobox";
 import { alreadyAddedMessage, ingredientOptions, ingredientWithFood } from "../ingredients";
 
@@ -27,25 +27,25 @@ export function IngredientCard({
   const details = match ? match[2] : "";
 
   return (
-    <article className="relative flex min-h-28 overflow-hidden rounded-3xl border border-border bg-card duration-300 animate-in fade-in slide-in-from-right-4">
+    <article className="surface-paper relative flex min-h-24 overflow-hidden rounded-card duration-300 animate-in fade-in slide-in-from-right-4">
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 p-4 pr-3">
         <div className="min-w-0">
           <h3
             title={ingredient.name}
-            className="break-words font-display text-2xl leading-tight tracking-tight"
+            className="break-words text-[19px] font-semibold leading-tight tracking-[-0.01em]"
           >
             {heading}
           </h3>
           {details && (
-            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
+            <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-muted-foreground">
               {details}
             </p>
           )}
         </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <label className="flex items-center gap-2 text-[15px] text-muted-foreground">
           <input
             aria-label={`Amount of ${ingredient.name} in ${ingredient.unit || "pieces"}`}
-            className="w-16 rounded border border-border bg-background px-2 py-1 text-foreground"
+            className="w-20 rounded-lg bg-secondary px-2.5 py-1.5 font-rounded tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={ingredient.amount}
             onChange={(event) => onAmountChange(event.target.value)}
           />
@@ -56,8 +56,7 @@ export function IngredientCard({
       <div className="relative w-24 shrink-0">
         <div
           className={cn(
-            "absolute -right-6 top-1/2 flex size-28 -translate-y-1/2 items-center justify-center rounded-full",
-            BUTTER,
+            "absolute -right-6 top-1/2 flex size-28 -translate-y-1/2 items-center justify-center rounded-full bg-secondary",
           )}
         >
           <IngredientArt
@@ -71,7 +70,7 @@ export function IngredientCard({
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${ingredient.name}`}
-        className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-card/90 backdrop-blur transition-colors hover:bg-destructive hover:text-destructive-foreground"
+        className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-card/90 text-muted-foreground backdrop-blur transition-colors hover:bg-destructive hover:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="size-4" />
       </button>

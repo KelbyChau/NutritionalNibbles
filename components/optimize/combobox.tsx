@@ -76,7 +76,7 @@ export function Combobox<
           role="listbox"
           aria-label="Suggestions"
           className={cn(
-            "surface-paper absolute inset-x-0 z-30 overflow-hidden rounded-3xl border border-border bg-card p-1.5",
+            "absolute inset-x-0 z-30 overflow-hidden rounded-card border border-border/60 bg-popover/90 p-1.5 backdrop-blur-xl backdrop-saturate-150",
             SHADOW,
             listPosition === "above" ? "bottom-full mb-2" : "top-full mt-2",
           )}
@@ -93,11 +93,11 @@ export function Combobox<
               }}
               onMouseEnter={() => setActive(i)}
               className={cn(
-                "flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-sm",
-                i === active && "bg-muted",
+                "flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-[15px]",
+                i === active && "bg-secondary",
               )}
             >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-background">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary">
                 {renderIcon(o)}
               </span>
               <span className="truncate">{o.text}</span>
@@ -113,7 +113,7 @@ export function Combobox<
       )}
       <div
         className={cn(
-          "flex items-center gap-2 rounded-full border bg-card pl-4 pr-1.5 focus-within:border-primary",
+          "flex items-center gap-2 rounded-full border bg-card pl-4 pr-1.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-shadow focus-within:border-transparent focus-within:ring-2 focus-within:ring-ring",
           size === "lg" ? "h-14" : "h-12",
           error ? "border-destructive" : "border-border",
           sendButton && "shadow-panel",
@@ -141,7 +141,7 @@ export function Combobox<
           aria-invalid={!!error}
           className={cn(
             "h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground",
-            size === "lg" ? "text-base" : "text-sm",
+            size === "lg" ? "text-[17px]" : "text-[15px]",
           )}
         />
         {sendButton ? (
@@ -151,7 +151,7 @@ export function Combobox<
             onClick={() => pick(value)}
             aria-label="Send"
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors disabled:bg-muted disabled:text-muted-foreground",
+              "flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors disabled:bg-secondary disabled:text-muted-foreground",
               size === "lg" ? "size-11" : "size-9",
             )}
           >
@@ -162,7 +162,7 @@ export function Combobox<
             type="button"
             disabled={!value.trim()}
             onClick={() => pick(value)}
-            className="h-9 shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors disabled:bg-muted disabled:text-muted-foreground"
+            className="h-9 shrink-0 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors disabled:bg-secondary disabled:text-muted-foreground"
           >
             Add
           </button>

@@ -173,7 +173,7 @@ export function RecipeImport({
         type="button"
         aria-label="Import a recipe"
         onClick={open}
-        className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
+        className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[15px] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <Import className="size-4" aria-hidden />
         <span className="hidden sm:inline">Import</span>

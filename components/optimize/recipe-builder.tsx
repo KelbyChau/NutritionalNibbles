@@ -230,15 +230,15 @@ function RecipeBuilderPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background xl:h-dvh xl:overflow-hidden">
       {/* Top bar */}
-      <header className="flex flex-wrap items-center gap-3 px-4 pb-2 pt-5 sm:gap-4 sm:px-6 lg:px-8">
+      <header className="surface-glass sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-3 sm:gap-3 sm:px-6 lg:px-8 xl:static xl:border-0 xl:bg-transparent xl:pt-5 xl:backdrop-blur-none">
         <Link
           href="/"
           aria-label="NutritionalNibbles home"
-          className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary font-display text-3xl leading-none text-primary-foreground"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-primary text-[20px] font-semibold leading-none text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           N
         </Link>
-        <h1 className="mr-auto font-display text-3xl leading-none tracking-tight sm:text-4xl">
+        <h1 className="mr-auto text-[22px] font-semibold tracking-[-0.01em] sm:text-[28px]">
           {recipeId ? "Edit Recipe" : "New Recipe"}
         </h1>
         <SaveButton
@@ -248,7 +248,7 @@ function RecipeBuilderPage() {
         <Link
           href="/dashboard"
           aria-label="Saved recipes"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[15px] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <LayoutGrid className="size-4" aria-hidden />
           <span className="hidden sm:inline">Saved recipes</span>
@@ -259,14 +259,12 @@ function RecipeBuilderPage() {
           replacing={ingredients.length}
           onImport={importRecipe}
         />
-        <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
-          <ThemeSwitcher />
-        </div>
+        <ThemeSwitcher />
         <Button
           onClick={optimize}
           disabled={!ingredients.length}
           title={ingredients.length ? undefined : "Add ingredients first"}
-          className="h-11 rounded-full px-5 shadow-none disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+          className="h-11 px-5 disabled:bg-secondary disabled:text-muted-foreground disabled:opacity-100"
         >
           <WandSparkles />
           Optimize
@@ -287,10 +285,11 @@ function RecipeBuilderPage() {
             inputRef={titleInput}
           />
 
-          <div className="surface-paper rounded-3xl bg-card p-4 shadow-panel sm:px-6">
+          <div className="surface-paper rounded-panel p-4 sm:px-6">
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat
                 icon={Flame}
+                tone="text-nutrient-calories bg-nutrient-calories/10"
                 label={nutrition.knownCalories.counted > 0 &&
                   nutrition.knownCalories.counted < nutrition.items.length
                   ? "Known calories / serving"
@@ -302,6 +301,7 @@ function RecipeBuilderPage() {
               />
               <Stat
                 icon={Dumbbell}
+                tone="text-nutrient-protein bg-nutrient-protein/10"
                 label={nutrition.known.counted.protein > 0 &&
                   nutrition.known.counted.protein < nutrition.items.length
                   ? "Known protein / serving"
@@ -316,26 +316,26 @@ function RecipeBuilderPage() {
                 }}
               />
               <div className="flex items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary">
                   <Users className="size-4" />
                 </span>
                 <div className="flex flex-col-reverse">
-                  <dt className="text-xs text-muted-foreground">Servings</dt>
-                  <dd className="flex items-center gap-1.5 font-semibold tabular-nums">
+                  <dt className="text-[12px] text-muted-foreground">Servings</dt>
+                  <dd className="flex w-fit items-center gap-1 rounded-full bg-secondary p-0.5 font-rounded text-[17px] font-semibold tabular-nums">
                     <button
                       type="button"
                       aria-label="Fewer servings"
                       onClick={() => setServings((s) => Math.max(1, s - 1))}
-                      className="flex size-5 items-center justify-center rounded-full bg-muted hover:bg-primary hover:text-primary-foreground"
+                      className="flex size-7 items-center justify-center rounded-full bg-card shadow-[0_1px_2px_rgb(0_0_0/0.08)] transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <Minus className="size-3" />
                     </button>
-                    <AnimatedNumber value={servings} format={fmtCount} />
+                    <span className="min-w-[1.5ch] text-center"><AnimatedNumber value={servings} format={fmtCount} /></span>
                     <button
                       type="button"
                       aria-label="More servings"
                       onClick={() => setServings((s) => Math.min(24, s + 1))}
-                      className="flex size-5 items-center justify-center rounded-full bg-muted hover:bg-primary hover:text-primary-foreground"
+                      className="flex size-7 items-center justify-center rounded-full bg-card shadow-[0_1px_2px_rgb(0_0_0/0.08)] transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <Plus className="size-3" />
                     </button>

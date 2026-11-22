@@ -114,6 +114,7 @@ export function Stat({
   value,
   number,
   muted,
+  tone = "bg-secondary",
 }: {
   icon: LucideIcon;
   label: string;
@@ -122,17 +123,19 @@ export function Stat({
   /** Rolls to each new value (see AnimatedNumber). */
   number?: { value: number | null; format: (n: number | null) => string };
   muted?: boolean;
+  /** Icon circle colors, e.g. a nutrient's text and tint. */
+  tone?: string;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", tone)}>
         <Icon className="size-4" />
       </span>
       <div className="flex min-w-0 flex-col-reverse">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dt className="text-[12px] text-muted-foreground">{label}</dt>
         <dd
           className={cn(
-            "truncate font-semibold tabular-nums",
+            "truncate font-rounded text-[19px] font-semibold tabular-nums",
             muted && "font-normal text-muted-foreground",
           )}
         >
