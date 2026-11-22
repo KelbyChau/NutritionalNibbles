@@ -6,6 +6,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "node --test \"lib/**/*.test.mjs\"",
+    "test:e2e": "playwright test",
     "local": "node scripts/local.mjs",
     "local:reset": "node scripts/local.mjs reset",
     "local:stop": "node scripts/local.mjs stop",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "1.65.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
