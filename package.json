@@ -5,6 +5,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --test \"lib/**/*.test.mjs\"",
     "local": "node scripts/local.mjs",
     "local:reset": "node scripts/local.mjs reset",
     "local:stop": "node scripts/local.mjs stop",
