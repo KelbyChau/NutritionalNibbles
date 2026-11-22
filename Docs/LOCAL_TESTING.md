@@ -88,7 +88,7 @@ no confirmation email.
 
 ## What's seeded
 
-- **12 public recipes** across several cuisines and dietary tags. They include quick,
+- **12 public recipes** covering a range of dishes. They include quick,
   high-protein and lighter recipes, so every dashboard category has something in it.
 - **Creamy Chicken Alfredo** and **Lighter Chicken Alfredo**: an original and an
   optimized version, linked by `parent_recipe_id`, for before-and-after work.

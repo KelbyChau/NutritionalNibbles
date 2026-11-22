@@ -54,7 +54,7 @@ begin
   for recipe in select value from jsonb_array_elements($recipes$
 [
   {"key": "alfredo", "title": "Creamy Chicken Alfredo", "owner": null, "hours_ago": 30,
-   "servings": 4, "prep": 10, "cook": 25, "cuisine": "Italian", "tags": [],
+   "servings": 4, "prep": 10, "cook": 25,
    "description": "Classic weeknight spaghetti in a rich parmesan cream sauce.",
    "items": [
      {"fdc_id": 2758998, "amount": 340, "food": "Pasta, dry, enriched, spaghetti"},
@@ -65,7 +65,7 @@ begin
    "steps": ["Cook the spaghetti until al dente.", "Sear the chicken until cooked through, then slice.", "Warm the cream with the garlic for 3 minutes.", "Stir in the parmesan and toss with the pasta and chicken."]},
 
   {"key": "alfredo-light", "title": "Lighter Chicken Alfredo", "owner": null, "hours_ago": 29,
-   "servings": 4, "prep": 10, "cook": 25, "cuisine": "Italian", "tags": ["High-protein"],
+   "servings": 4, "prep": 10, "cook": 25,
    "description": "The alfredo with Greek yogurt in place of most of the cream: more protein, much less fat.",
    "items": [
      {"fdc_id": 2758998, "amount": 340, "food": "Pasta, dry, enriched, spaghetti"},
@@ -77,7 +77,7 @@ begin
    "steps": ["Cook the spaghetti, keeping a cup of the cooking water.", "Sear the chicken until cooked through, then slice.", "Off the heat, whisk the yogurt, cream and parmesan with a splash of pasta water.", "Toss everything together; don't boil the sauce or the yogurt will split."]},
 
   {"key": "taco-bowls", "title": "Turkey Taco Bowls", "owner": null, "hours_ago": 50,
-   "servings": 4, "prep": 10, "cook": 20, "cuisine": "Mexican", "tags": ["Gluten-free", "High-protein"],
+   "servings": 4, "prep": 10, "cook": 20,
    "description": "Lean turkey, rice and black beans with fresh tomato, corn and avocado.",
    "items": [
      {"fdc_id": 2514747, "amount": 454, "food": "Turkey, ground, 93% lean/ 7% fat, raw"},
@@ -90,7 +90,7 @@ begin
    "steps": ["Cook the rice.", "Brown the turkey with the chopped jalapeno.", "Warm the beans and corn.", "Build bowls and top with diced tomato and avocado."]},
 
   {"key": "salmon-bowl", "title": "Salmon Rice Bowl", "owner": null, "hours_ago": 75,
-   "servings": 2, "prep": 10, "cook": 15, "cuisine": "Japanese", "tags": ["Dairy-free", "High-protein"],
+   "servings": 2, "prep": 10, "cook": 15,
    "description": "Roasted sockeye salmon over rice with avocado and shredded carrot.",
    "items": [
      {"fdc_id": 2684440, "amount": 340, "food": "Fish, salmon, sockeye, wild caught, raw"},
@@ -100,7 +100,7 @@ begin
    "steps": ["Cook the rice.", "Roast the salmon at 400°F for 12 minutes.", "Slice the avocado, shred the carrot and assemble the bowls."]},
 
   {"key": "chickpea-curry", "title": "Chickpea Spinach Curry", "owner": null, "hours_ago": 100,
-   "servings": 4, "prep": 10, "cook": 25, "cuisine": "Indian", "tags": ["Vegan", "Gluten-free"],
+   "servings": 4, "prep": 10, "cook": 25,
    "description": "Chickpeas simmered with tomato, onion and garlic, finished with spinach.",
    "items": [
      {"fdc_id": 2644288, "amount": 510, "food": "Chickpeas, canned, drained"},
@@ -113,7 +113,7 @@ begin
    "steps": ["Soften the onion and garlic in the coconut oil.", "Add the tomatoes and simmer until saucy.", "Stir in the chickpeas for 10 minutes, then wilt in the spinach.", "Serve over rice."]},
 
   {"key": "steak", "title": "Steak with Sweet Potatoes", "owner": null, "hours_ago": 125,
-   "servings": 2, "prep": 10, "cook": 35, "cuisine": "American", "tags": ["Gluten-free", "Dairy-free", "High-protein"],
+   "servings": 2, "prep": 10, "cook": 35,
    "description": "Seared top sirloin with roasted sweet potatoes and broccoli.",
    "items": [
      {"fdc_id": 2727574, "amount": 225, "food": "Beef, top sirloin steak, raw"},
@@ -122,7 +122,7 @@ begin
    "steps": ["Roast the cubed sweet potatoes on a lined tray at 425°F for 30 minutes.", "Add the broccoli for the last 10 minutes.", "Sear the steak in a hot dry pan for 4 minutes a side, rest, then slice."]},
 
   {"key": "shrimp-marinara", "title": "Shrimp Marinara Pasta", "owner": null, "hours_ago": 150,
-   "servings": 4, "prep": 10, "cook": 15, "cuisine": "Italian", "tags": ["High-protein"],
+   "servings": 4, "prep": 10, "cook": 15,
    "description": "Spaghetti and shrimp in garlicky marinara with a little parmesan.",
    "items": [
      {"fdc_id": 2758998, "amount": 227, "food": "Pasta, dry, enriched, spaghetti"},
@@ -133,7 +133,7 @@ begin
    "steps": ["Cook the spaghetti.", "Simmer the marinara with the garlic for 5 minutes.", "Add the shrimp and cook until pink.", "Toss with the pasta and top with parmesan."]},
 
   {"key": "overnight-oats", "title": "Overnight Oats with Blueberries", "owner": null, "hours_ago": 175,
-   "servings": 2, "prep": 5, "cook": 0, "cuisine": "American", "tags": ["Vegetarian"],
+   "servings": 2, "prep": 5, "cook": 0,
    "description": "No-cook oats with milk, Greek yogurt, blueberries and almonds.",
    "items": [
      {"fdc_id": 2346396, "amount": 80,  "food": "Oats, whole grain, rolled, old fashioned"},
@@ -144,7 +144,7 @@ begin
    "steps": ["Stir the oats, milk and yogurt together.", "Refrigerate overnight.", "Top with blueberries and chopped almonds."]},
 
   {"key": "egg-scramble", "title": "Veggie Egg Scramble", "owner": null, "hours_ago": 200,
-   "servings": 2, "prep": 5, "cook": 10, "cuisine": "American", "tags": ["Vegetarian", "Gluten-free"],
+   "servings": 2, "prep": 5, "cook": 10,
    "description": "Eggs and egg whites with spinach, mushrooms and a little cheddar.",
    "items": [
      {"fdc_id": 748967,  "amount": 200, "food": "Eggs, Grade A, Large, egg whole"},
@@ -155,7 +155,7 @@ begin
    "steps": ["Cook the sliced mushrooms in a non-stick pan, then wilt the spinach.", "Add the whisked eggs and whites, stirring gently.", "Fold in the cheddar off the heat."]},
 
   {"key": "lentil-soup", "title": "Hearty Lentil Soup", "owner": null, "hours_ago": 225,
-   "servings": 4, "prep": 15, "cook": 35, "cuisine": "Mediterranean", "tags": ["Vegan", "Gluten-free"],
+   "servings": 4, "prep": 15, "cook": 35,
    "description": "Lentils, carrot and tomato in a thick soup with spinach stirred through.",
    "items": [
      {"fdc_id": 2644283, "amount": 200, "food": "Lentils, dry"},
@@ -167,7 +167,7 @@ begin
    "steps": ["Simmer everything except the spinach in 1.5 litres of water for 30 minutes.", "Stir in the spinach until wilted."]},
 
   {"key": "quesadillas", "title": "Black Bean Quesadillas", "owner": null, "hours_ago": 250,
-   "servings": 4, "prep": 10, "cook": 10, "cuisine": "Mexican", "tags": ["Vegetarian"],
+   "servings": 4, "prep": 10, "cook": 10,
    "description": "Crisp flour tortillas filled with black beans, peppers and mozzarella.",
    "items": [
      {"fdc_id": 2758996, "amount": 180, "food": "Tortilla, wheat flour, shelf stable"},
@@ -178,7 +178,7 @@ begin
    "steps": ["Lightly mash the beans with the diced pepper and onion.", "Fill the tortillas with the beans and cheese.", "Toast in a dry pan until crisp on both sides."]},
 
   {"key": "butter-shrimp", "title": "Garlic Butter Shrimp", "owner": null, "hours_ago": 275,
-   "servings": 2, "prep": 5, "cook": 10, "cuisine": "American", "tags": ["Gluten-free"],
+   "servings": 2, "prep": 5, "cook": 10,
    "description": "Shrimp and broccoli in garlic butter. Butter has no calorie, protein or carb data in USDA Foundation Foods, so only fat is calculated for this recipe.",
    "items": [
      {"fdc_id": 2684443, "amount": 340, "food": "Crustaceans, shrimp, farm raised, raw"},
@@ -188,7 +188,7 @@ begin
    "steps": ["Steam the broccoli.", "Melt the butter with the garlic.", "Cook the shrimp in the garlic butter until pink and toss with the broccoli."]},
 
   {"key": "pancakes", "title": "My Protein Pancakes", "owner": "demo", "hours_ago": 1,
-   "servings": 2, "prep": 5, "cook": 10, "cuisine": "American", "tags": ["Vegetarian"],
+   "servings": 2, "prep": 5, "cook": 10,
    "description": "Blender pancakes with oats, eggs, banana and cottage cheese.",
    "items": [
      {"fdc_id": 2346396, "amount": 80,  "food": "Oats, whole grain, rolled, old fashioned"},
@@ -198,7 +198,7 @@ begin
    "steps": ["Blend everything until smooth.", "Cook small pancakes in a non-stick pan for 2 minutes a side."]},
 
   {"key": "baked-spaghetti", "title": "Three-Cheese Baked Spaghetti", "owner": "demo", "hours_ago": 6,
-   "servings": 6, "prep": 10, "cook": 30, "cuisine": "Italian", "tags": ["Vegetarian"],
+   "servings": 6, "prep": 10, "cook": 30,
    "description": "Spaghetti baked with marinara, ricotta, mozzarella and cheddar.",
    "items": [
      {"fdc_id": 2758998, "amount": 340, "food": "Pasta, dry, enriched, spaghetti"},
@@ -209,7 +209,7 @@ begin
    "steps": ["Cook the spaghetti and mix it with the marinara and ricotta.", "Spread in a baking dish and top with the mozzarella and cheddar.", "Bake at 375°F for 20 minutes until bubbling."]},
 
   {"key": "fried-rice", "title": "Weeknight Chicken Fried Rice", "owner": "demo", "hours_ago": 20,
-   "servings": 4, "prep": 10, "cook": 15, "cuisine": "Chinese", "tags": ["Dairy-free"],
+   "servings": 4, "prep": 10, "cook": 15,
    "description": "Day-old rice fried with chicken, egg and vegetables.",
    "items": [
      {"fdc_id": 2512381, "amount": 280, "food": "Rice, white, long grain, unenriched, raw"},
@@ -222,7 +222,7 @@ begin
    "steps": ["Cook the rice a day ahead and chill it.", "Fry the diced chicken in the oil, then set aside.", "Scramble the eggs, add the vegetables, then the rice.", "Fry until hot and return the chicken."]},
 
   {"key": "chili", "title": "Sam's Secret Chili", "owner": "demo2", "hours_ago": 3,
-   "servings": 6, "prep": 15, "cook": 60, "cuisine": "American", "tags": ["Gluten-free", "Dairy-free"],
+   "servings": 6, "prep": 15, "cook": 60,
    "description": "Another user's private recipe, for checking that private recipes stay private.",
    "items": [
      {"fdc_id": 2514743, "amount": 454, "food": "Beef, ground, 90% lean / 10% fat, raw"},
@@ -245,8 +245,6 @@ $recipes$::jsonb)
     -- Fill in what the save function doesn't take.
     update public.recipes set
       description  = recipe->>'description',
-      cuisine      = recipe->>'cuisine',
-      dietary_tags = array(select jsonb_array_elements_text(recipe->'tags')),
       prep_minutes = (recipe->>'prep')::int,
       cook_minutes = (recipe->>'cook')::int,
       instructions = recipe->'steps',
