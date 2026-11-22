@@ -186,12 +186,12 @@ export function RecipeCard({
             </span>
           )}
           {recipe.protein_g_per_serving !== null && (
-            <span className="rounded-full bg-nutrient-protein/10 px-2 py-0.5 text-nutrient-protein">
+            <span className="rounded-full bg-nutrient-protein/15 px-2 py-0.5 text-foreground">
               {Math.round(recipe.protein_g_per_serving)}g protein
             </span>
           )}
           {recipe.calories_per_serving !== null && (
-            <span className="rounded-full bg-nutrient-calories/10 px-2 py-0.5 text-nutrient-calories">
+            <span className="rounded-full bg-nutrient-calories/15 px-2 py-0.5 text-foreground">
               {Math.round(recipe.calories_per_serving)} kcal
             </span>
           )}

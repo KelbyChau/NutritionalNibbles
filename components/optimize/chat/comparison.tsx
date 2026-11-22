@@ -131,8 +131,8 @@ export function Comparison({
               <dd
                 className={cn(
                   "w-14 text-right text-xs tabular-nums",
-                  good && "text-macro-protein",
-                  bad && "text-macro-fat",
+                  good && "text-primary",
+                  bad && "text-destructive",
                   !good && !bad && "text-muted-foreground",
                 )}
               >
