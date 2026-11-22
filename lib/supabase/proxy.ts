@@ -52,6 +52,10 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/optimize") &&
     !request.nextUrl.pathname.startsWith("/dashboard") &&
     !user &&
+    // API routes check sign-in themselves and return JSON 401s, so API
+    // callers (and signed-out visitors listing public recipes) aren't
+    // redirected to the login page.
+    !request.nextUrl.pathname.startsWith("/api/") &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth")
   ) {
