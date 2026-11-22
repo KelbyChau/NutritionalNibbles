@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { foodLabel } from "@/lib/foundation-foods";
 import { createClient } from "@/lib/supabase/client";
 
 const nutrients = [
@@ -23,33 +24,9 @@ export function FoundationFoodPicker() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [title, setTitle] = useState("");
   const [servings, setServings] = useState("1");
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
   const validServings = Number.isInteger(Number(servings)) && Number(servings) > 0;
   const validWeights = selected.length > 0 && selected.every(food => Number(food.grams) > 0);
-
-  async function save() {
-    setSaving(true);
-    setNotice("");
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setNotice("Sign in to save your recipe.");
-        return;
-      }
-      const { error } = await supabase.rpc("save_foundation_recipe", {
-        recipe_title: title.trim(), serving_count: Number(servings),
-        items: selected.map(food => ({ fdc_id: food.fdc_id, amount: Number(food.grams) })),
-      });
-      setNotice(error ? "Couldn’t save your recipe. Please try again." : "Recipe saved to your account.");
-    } catch {
-      setNotice("Couldn’t connect. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   useEffect(() => {
     const term = query.trim();
@@ -87,10 +64,7 @@ export function FoundationFoodPicker() {
   }
 
   return (
-    <fieldset disabled={saving} className="space-y-4">
-      <label className="block">Recipe name
-        <input className="block w-full rounded border p-2" value={title} onChange={e => setTitle(e.target.value)} />
-      </label>
+    <fieldset className="space-y-4">
       <div className="relative">
         <label htmlFor="foundation-food-search" className="mb-2 block font-medium">
           Ingredients you have
@@ -140,7 +114,7 @@ export function FoundationFoodPicker() {
                   onClick={() => choose(food)}
                   className={`w-full rounded-md px-3 py-2 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active === index ? "bg-secondary" : ""}`}
                 >
-                  {food.description}
+                  {foodLabel(food.description)}
                 </button>
               </li>
             ))}
@@ -154,16 +128,16 @@ export function FoundationFoodPicker() {
         <div aria-label="Selected ingredients" className="flex flex-wrap gap-2">
           {selected.map((food) => (
             <span key={food.fdc_id} className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-sm">
-              {food.description}
+              {foodLabel(food.description)}
               <label>Grams
-                <input type="number" min="0" step="any" aria-label={food.description + " grams"}
+                <input type="number" min="0" step="any" aria-label={foodLabel(food.description) + " grams"}
                   className="w-24 rounded border p-1" value={food.grams}
                   onChange={e => setSelected(items => items.map(item => item.fdc_id === food.fdc_id
                     ? { ...item, grams: e.target.value } : item))} />
               </label>
               <button
                 type="button"
-                aria-label={`Remove ${food.description}`}
+                aria-label={`Remove ${foodLabel(food.description)}`}
                 onClick={() => setSelected((items) => items.filter((item) => item.fdc_id !== food.fdc_id))}
                 className="rounded-full px-1 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
@@ -192,11 +166,6 @@ export function FoundationFoodPicker() {
         {selected.some(food => nutrients.some(([key]) => food[key] == null)) &&
           <p className="text-sm">A dash marks an estimate with missing USDA data.</p>}
       </section>
-      <button type="button" disabled={!validServings || !validWeights || !title.trim() || saving}
-        className="rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50" onClick={save}>
-        {saving ? "Saving…" : "Save recipe"}
-      </button>
-      <p role="status">{notice}</p>
     </fieldset>
   );
 }
