@@ -18,7 +18,7 @@ import {
   Timer,
   Users,
   UtensilsCrossed,
-  WandSparkles,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -220,8 +220,8 @@ export function RecipeDashboard({
         </div>
         <Button asChild className="h-11 rounded-full px-5 shadow-none">
           <Link href="/optimize">
-            <WandSparkles />
-            Optimize a recipe
+            <Plus />
+            Create Recipe
           </Link>
         </Button>
       </header>
@@ -645,12 +645,12 @@ function EmptyState({
             ? loadError
             : hasRecipes
               ? "Try a different search, category or filter."
-              : "Optimize your first recipe and it will show up here."}
+              : "Create your first recipe and it will show up here."}
         </p>
         {!hasRecipes && !loadError && (
           <Button asChild className="mt-6 rounded-full px-6 shadow-none">
             <Link href="/optimize">
-              Optimize a recipe
+              Create Recipe
               <ArrowRight />
             </Link>
           </Button>

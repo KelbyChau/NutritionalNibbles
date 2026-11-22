@@ -1,10 +1,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(21);
+select plan(20);
 
-select has_table('public', 'recipes');
-select has_table('public', 'saved_recipes');
+-- Three arguments: with two plain strings pgTAP picks has_table(table, description)
+-- and looks for a table named "public".
+select has_table('public', 'recipes', 'recipes table exists');
+select has_table('public', 'saved_recipes', 'saved_recipes table exists');
 select is((select relrowsecurity from pg_class where oid = 'public.recipes'::regclass), true, 'recipes RLS enabled');
 select is((select relrowsecurity from pg_class where oid = 'public.saved_recipes'::regclass), true, 'saves RLS enabled');
 
@@ -19,15 +21,17 @@ values
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '11111111-1111-4111-8111-111111111111', 'Private A', 10, 2, false),
   ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', '22222222-2222-4222-8222-222222222222', 'Private B', 10, 2, false);
 
+-- Recipe counts only look at the fixture users' rows, so the demo data from
+-- supabase/seed.sql doesn't change the results.
 set local role anon;
-select is((select count(*) from public.recipes), 1::bigint, 'anonymous sees public recipe only');
+select is((select count(*) from public.recipes where owner_id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222')), 1::bigint, 'anonymous sees public recipe only');
 select is((select count(*) from public.saved_recipes), 0::bigint, 'anonymous sees no saves');
 select throws_ok($$insert into public.recipes (title, prep_minutes, servings) values ('Anon', 1, 1)$$, '42501');
 reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
-select is((select count(*) from public.recipes), 2::bigint, 'A sees public and own private recipe');
+select is((select count(*) from public.recipes where owner_id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222')), 2::bigint, 'A sees public and own private recipe');
 select throws_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings, is_public) values ('11111111-1111-4111-8111-111111111111', 'Published', 1, 1, true)$$, '42501');
 select throws_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings) values ('22222222-2222-4222-8222-222222222222', 'Other owner', 1, 1)$$, '42501');
 select lives_ok($$insert into public.recipes (owner_id, title, prep_minutes, servings) values ('11111111-1111-4111-8111-111111111111', 'Own new', 1, 1)$$, 'user can create own recipe');
@@ -41,7 +45,7 @@ select throws_ok($$insert into public.saved_recipes (user_id, recipe_id) values 
 select is((select count(*) from public.saved_recipes), 1::bigint, 'A sees own save');
 
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);
-select is((select count(*) from public.recipes), 2::bigint, 'B sees public and own private recipe');
+select is((select count(*) from public.recipes where owner_id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222')), 2::bigint, 'B sees public and own private recipe');
 select is((select count(*) from public.saved_recipes), 0::bigint, 'B cannot see A save');
 with removed as (delete from public.saved_recipes where recipe_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' returning recipe_id)
 select is((select count(*) from removed), 0::bigint, 'B cannot delete A save');

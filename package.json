@@ -4,7 +4,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "local": "node scripts/local.mjs",
+    "local:reset": "node scripts/local.mjs reset",
+    "local:stop": "node scripts/local.mjs stop",
+    "test:db": "node scripts/local.mjs test"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
