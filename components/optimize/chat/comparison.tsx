@@ -4,6 +4,8 @@
 
 import type { Nutrients, RecipeNutrition } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
+import { NutritionRings } from "@/components/nutrition-rings";
+import { nutritionRings } from "@/lib/nutrition-rings";
 import { AnimatedNumber, type GoalKey } from "../shared";
 import { formatAmount } from "./swap-text";
 
@@ -65,12 +67,30 @@ export function Comparison({
     now: perServingComparison(now, row.key, servings),
   }));
   return (
-    <section className="surface-paper rounded-3xl border border-border bg-card p-4">
+    <section className="surface-paper rounded-panel p-5">
       <div className="flex items-baseline justify-between">
-        <h2 className="font-display text-2xl leading-none">Before → Now</h2>
-        <span className="text-[11px] text-muted-foreground">per serving</span>
+        <h2 className="text-[22px] font-semibold tracking-[-0.01em]">Before → Now</h2>
+        <span className="text-[12px] text-muted-foreground">per serving</span>
       </div>
-      <dl className="mt-3 flex flex-col">
+      <div className="mt-4 flex items-center justify-around">
+        {[
+          { label: "Before", nutrition: before, id: "rings-before" },
+          { label: "Now", nutrition: now, id: "rings-now" },
+        ].map(({ label, nutrition, id }) => (
+          <figure key={id} className="flex flex-col items-center gap-2">
+            <NutritionRings
+              rings={nutritionRings(nutrition.known.perServing, nutrition.known.counted, nutrition.items.length)}
+              size={88}
+              stroke={9}
+              gap={2}
+              showLegend={false}
+              testId={id}
+            />
+            <figcaption className="text-[13px] font-medium text-muted-foreground">{label}</figcaption>
+          </figure>
+        ))}
+      </div>
+      <dl className="mt-4 flex flex-col">
         {comparison.map((r) => {
           const a = r.before.value;
           const b = r.now.value;
@@ -87,14 +107,14 @@ export function Comparison({
             <div
               key={r.key}
               className={cn(
-                "grid grid-cols-[1fr_auto_auto] items-baseline gap-3 border-b border-border py-1.5 text-sm last:border-0",
+                "grid grid-cols-[1fr_auto_auto] items-baseline gap-3 border-b border-border/70 py-2 text-[15px] last:border-0",
                 goal === r.goal && "font-semibold",
               )}
             >
               <dt className="flex items-center gap-1.5">
                 {r.label}
                 {goal === r.goal && (
-                  <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium">
+                  <span className="rounded-full bg-primary/10 px-2 text-[11px] font-medium text-primary">
                     goal
                   </span>
                 )}

@@ -23,9 +23,9 @@ export function RecipeList({
   onCommand: (text: string) => void;
 }) {
   return (
-      <div className="surface-paper flex min-h-0 flex-1 flex-col rounded-3xl border border-border bg-card p-4">
+      <div className="surface-paper flex min-h-0 flex-1 flex-col rounded-panel p-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl leading-none">
+          <h2 className="text-[22px] font-semibold tracking-[-0.01em]">
             Ingredients
           </h2>
           <div className="flex gap-1">
@@ -43,7 +43,7 @@ export function RecipeList({
             />
           </div>
         </div>
-        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-3 flex w-fit items-center gap-2 rounded-full bg-secondary py-0.5 pl-3 pr-0.5 text-[13px] text-muted-foreground">
           Servings
           <IconButton
             label="Fewer servings"
@@ -51,7 +51,7 @@ export function RecipeList({
             small
             onClick={() => onCommand(`${Math.max(1, servings - 1)} servings`)}
           />
-          <span className="font-semibold tabular-nums text-foreground">
+          <span className="min-w-[1.5ch] text-center font-rounded font-semibold tabular-nums text-foreground">
             <AnimatedNumber value={servings} format={fmtCount} />
           </span>
           <IconButton
@@ -74,7 +74,7 @@ export function RecipeList({
             return (
               <li
                 key={ing.id}
-                className="flex items-center gap-3 rounded-2xl border border-border p-2 pr-1"
+                className="flex items-center gap-3 rounded-2xl bg-secondary/60 p-2 pr-1"
               >
                 <span
                   className={cn(
@@ -86,22 +86,22 @@ export function RecipeList({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-sm font-medium"
+                    className="truncate text-[15px] font-medium"
                     title={ing.name}
                   >
                     {ing.name}
                   </p>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                     {ing.amount} {ing.unit}
                     {tag && (
-                      <span className="rounded-full bg-primary px-1.5 py-px text-[10px] font-medium text-primary-foreground">
+                      <span className="rounded-full bg-primary/10 px-2 py-px text-[11px] font-medium text-primary">
                         {tag}
                       </span>
                     )}
                   </p>
                   {tag === "Swapped" && was && (
                     <p
-                      className="truncate text-[11px] text-muted-foreground line-through"
+                      className="truncate text-[12px] text-muted-foreground line-through"
                       title={was.name}
                     >
                       {was.name}
@@ -126,10 +126,10 @@ export function RecipeList({
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted opacity-60">
                   <IngredientArt ingredient={o} sizeRem={1.75} />
                 </span>
-                <p className="min-w-0 flex-1 truncate text-sm line-through">
+                <p className="min-w-0 flex-1 truncate text-[15px] line-through">
                   {o.name}
                 </p>
-                <span className="pr-2 text-[10px] uppercase tracking-wide">
+                <span className="pr-2 text-[12px] font-medium">
                   Removed
                 </span>
               </li>

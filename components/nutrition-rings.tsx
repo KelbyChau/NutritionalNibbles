@@ -5,12 +5,29 @@
 // previous value when the numbers change, so an edit visibly moves the
 // rings; with reduced motion they're drawn in place.
 
-import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useSyncExternalStore, type ReactNode } from "react";
+import { motion } from "motion/react";
 import type { Ring } from "@/lib/nutrition-rings";
 import { cn } from "@/lib/utils";
 
 const color = (key: Ring["key"]) => `hsl(var(--nutrient-${key}))`;
+
+// The OS "reduce motion" setting. Read with useSyncExternalStore so rings
+// rendered on the server (where it can't be known) switch to the real
+// setting as soon as the page loads, instead of keeping the server's guess.
+const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+function subscribe(onChange: () => void) {
+  const query = window.matchMedia(reducedMotionQuery);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(reducedMotionQuery).matches,
+    () => false,
+  );
+}
 
 const amount = (ring: Ring) =>
   ring.value === null
@@ -39,7 +56,7 @@ export function NutritionRings({
   className?: string;
   children?: ReactNode; // shown in the middle, e.g. the calorie number
 }) {
-  const reduce = useReducedMotion() ?? false;
+  const reduce = usePrefersReducedMotion();
   const summary = rings
     .map((r) => `${r.label} ${amount(r)}${r.value === null ? "" : `, ${percent(r)} of daily value`}`)
     .join("; ");

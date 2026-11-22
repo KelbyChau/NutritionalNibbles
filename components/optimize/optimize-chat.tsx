@@ -24,7 +24,7 @@ import {
   type VerifiedSwap,
 } from "@/lib/optimizer/nutrient-swaps";
 import { cn } from "@/lib/utils";
-import { BUTTER, goals, type GoalKey, type Ingredient } from "./shared";
+import { goals, type GoalKey, type Ingredient } from "./shared";
 import { Combobox } from "./combobox";
 import { NutritionPanel } from "./nutrition-panel";
 import { alreadyAddedMessage, ingredientWithFood, makeIngredient, useUsdaFoods } from "./ingredients";
@@ -605,23 +605,18 @@ function OptimizeChatPage() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             <ol
               aria-live="polite"
-              className="mx-auto flex max-w-3xl flex-col gap-4 pb-4"
+              className="mx-auto flex max-w-3xl flex-col gap-3 pb-6 pt-2"
             >
               {messages.map((m) => (
                 <li
                   key={m.id}
                   className={cn(
-                    "flex gap-3",
+                    "flex gap-2.5",
                     m.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
                   {m.role === "assistant" && (
-                    <span
-                      className={cn(
-                        "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-primary",
-                        BUTTER,
-                      )}
-                    >
+                    <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <WandSparkles className="size-4" />
                     </span>
                   )}
@@ -633,10 +628,10 @@ function OptimizeChatPage() {
                   >
                     <p
                       className={cn(
-                        "whitespace-pre-wrap rounded-3xl px-4 py-3 text-sm leading-relaxed",
+                        "whitespace-pre-wrap rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed",
                         m.role === "user"
-                          ? "rounded-br-md bg-primary text-primary-foreground"
-                          : "surface-paper rounded-bl-md border border-border bg-card",
+                          ? "rounded-br-[6px] bg-primary text-primary-foreground"
+                          : "rounded-bl-[6px] bg-card text-card-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06)] dark:bg-secondary dark:shadow-none",
                       )}
                     >
                       {m.text}
@@ -657,20 +652,15 @@ function OptimizeChatPage() {
               ))}
               {checkingSwaps && (
                 <li className="flex justify-start gap-3">
-                  <span
-                    className={cn(
-                      "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-primary",
-                      BUTTER,
-                    )}
-                  >
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <WandSparkles className="size-4" />
                   </span>
-                  <div className="surface-paper flex max-w-[85%] items-center gap-3 rounded-3xl rounded-bl-md border border-border bg-card px-4 py-3 text-sm leading-relaxed">
+                  <div className="flex max-w-[85%] items-center gap-3 rounded-[20px] rounded-bl-[6px] bg-card px-4 py-2.5 text-[15px] leading-relaxed shadow-[0_1px_2px_rgb(0_0_0/0.06)] dark:bg-secondary dark:shadow-none">
                     <span className="flex gap-1" aria-hidden>
                       {[0, 150, 300].map((delay) => (
                         <span
                           key={delay}
-                          className="size-1.5 animate-bounce rounded-full bg-primary"
+                          className="size-1.5 animate-bounce rounded-full bg-muted-foreground motion-reduce:animate-none"
                           style={{ animationDelay: `${delay}ms` }}
                         />
                       ))}
@@ -683,7 +673,7 @@ function OptimizeChatPage() {
             <div ref={logEnd} />
           </div>
 
-          <div className="mx-auto w-full max-w-3xl">
+          <div className="surface-glass sticky bottom-0 mx-auto w-full max-w-3xl rounded-t-[24px] pt-3">
             <div className="mb-2 flex flex-wrap gap-2">
               {goals.map((g) => {
                 const Icon = g.icon;
@@ -695,10 +685,10 @@ function OptimizeChatPage() {
                     aria-pressed={on}
                     onClick={() => runAction({ type: "goal", goal: g.key })}
                     className={cn(
-                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors",
+                      "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       on
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card hover:border-foreground/40",
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/70",
                     )}
                   >
                     <Icon className={cn("size-3.5", !on && g.color)} />
@@ -725,7 +715,7 @@ function OptimizeChatPage() {
               size="lg"
               listPosition="above"
             />
-            <p role="status" className="mt-2 text-center text-[11px] text-muted-foreground">
+            <p role="status" className="mt-2 pb-1 text-center text-[12px] text-muted-foreground">
               {checkingSwaps ? "Checking USDA swaps…" : "Nutrition is estimated from USDA values. Not medical advice."}
             </p>
           </div>

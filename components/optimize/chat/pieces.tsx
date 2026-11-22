@@ -22,20 +22,20 @@ export function Shell({
 }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background xl:h-dvh xl:overflow-hidden">
-      <header className="flex flex-wrap items-center gap-3 px-4 pb-2 pt-5 sm:gap-4 sm:px-6 lg:px-8">
+      <header className="surface-glass sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-3 sm:px-6 lg:px-8 xl:static xl:border-0 xl:bg-transparent xl:pt-5 xl:backdrop-blur-none">
         <Link
           href="/"
           aria-label="NutritionalNibbles home"
-          className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary font-display text-3xl leading-none text-primary-foreground"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-primary text-[20px] font-semibold leading-none text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           N
         </Link>
         <div className="mr-auto min-w-0">
-          <h1 className="font-display text-3xl leading-none tracking-tight sm:text-4xl">
+          <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] sm:text-[28px]">
             Optimize
           </h1>
           {title && (
-            <p className="mt-1 truncate text-sm text-muted-foreground">
+            <p className="truncate text-[13px] text-muted-foreground">
               {title}
             </p>
           )}
@@ -43,15 +43,13 @@ export function Shell({
         <Link
           href="/optimize?draft=1"
           aria-label="Edit ingredients"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
+          className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[15px] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <ArrowLeft className="size-4" aria-hidden />
           <span className="hidden sm:inline">Edit ingredients</span>
         </Link>
         {onSave && <SaveButton onSave={onSave} />}
-        <div className="flex h-11 items-center rounded-full border border-border bg-card px-1">
-          <ThemeSwitcher />
-        </div>
+        <ThemeSwitcher />
       </header>
       {children}
     </div>
@@ -74,7 +72,7 @@ export function ActionButton({
       <button
         type="button"
         onClick={onRun}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs transition-colors hover:border-primary"
+        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-[13px] font-medium transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Icon className={cn("size-3.5", g.color)} />
         {g.label}
@@ -85,7 +83,7 @@ export function ActionButton({
     <button
       type="button"
       onClick={onRun}
-      className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-left text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+      className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-left text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <Check className="size-3.5 shrink-0" />
       Apply: {action.type === "nutrientSwap" ? action.label : action.change.label}
@@ -114,10 +112,10 @@ export function IconButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted disabled:opacity-30",
+        "flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30",
         small
-          ? "size-6 bg-muted hover:bg-primary hover:text-primary-foreground"
-          : "size-8",
+          ? "size-7 bg-card shadow-[0_1px_2px_rgb(0_0_0/0.08)] hover:bg-primary hover:text-primary-foreground"
+          : "size-8 text-muted-foreground",
       )}
     >
       <Icon className={small ? "size-3" : "size-4"} />
