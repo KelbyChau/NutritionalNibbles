@@ -11,3 +11,15 @@ test.describe("phone width", () => {
     });
   }
 });
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  // Enabled in Task 5, once the nutrition panel shows rings.
+  test.fixme("rings render still when reduced motion is on", async ({ page }) => {
+    const chat = pages.find((p) => p.name === "chat")!;
+    await chat.open(page);
+    const rings = page.locator('[data-testid^="rings"]');
+    await expect(rings.first()).toBeVisible();
+    for (const ring of await rings.all()) await expect(ring).toHaveAttribute("data-animate", "false");
+  });
+});
