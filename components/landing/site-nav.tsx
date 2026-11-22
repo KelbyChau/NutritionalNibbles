@@ -2,13 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AuthButton } from "@/components/auth-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
+import { Button } from "@/components/ui/button";
 import { hasEnvVars } from "@/lib/utils";
-
-const links = [
-  { href: "#how-it-works", label: "How it works" },
-  { href: "/dashboard", label: "Recipes" },
-  { href: "/optimize", label: "Optimize a recipe" },
-];
 
 export function SiteNav() {
   return (
@@ -20,17 +15,22 @@ export function SiteNav() {
         >
           NutritionalNibbles
         </Link>
-        <ul className="hidden items-center gap-8 text-sm md:flex">
-          {links.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className="underline-offset-4 hover:underline"
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
+        <ul className="hidden items-center gap-3 text-sm md:flex">
+          <li>
+            <Link href="#how-it-works" className="underline-offset-4 hover:underline">
+              How it works
+            </Link>
+          </li>
+          <li>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/optimize">Optimize a recipe</Link>
+            </Button>
+          </li>
+          <li>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+          </li>
         </ul>
         <div className="text-sm">
           {!hasEnvVars ? (
