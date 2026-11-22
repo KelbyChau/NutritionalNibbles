@@ -7,6 +7,11 @@
 import Image from "next/image";
 import { useEffect, useId, useState } from "react";
 import {
+  AnimatedNumber,
+  fmtCount,
+  fmtPercent,
+} from "@/components/animated-number";
+import {
   ArrowUp,
   Droplet,
   Dumbbell,
@@ -203,6 +208,8 @@ export function loadDraft(): OptimizeDraft | null {
 
 // ---- Small UI pieces ---------------------------------------------------------
 
+export { AnimatedNumber, fmtCount, fmtPercent };
+
 export function IngredientArt({
   ingredient,
   sizeRem,
@@ -220,7 +227,11 @@ export function IngredientArt({
       height={224}
       unoptimized
       style={{ width: `${sizeRem}rem`, height: `${sizeRem}rem` }}
-      className={cn("object-contain", className)}
+      // Grows/shrinks smoothly when it moves to a bigger or smaller plate spot.
+      className={cn(
+        "object-contain transition-[width,height] duration-300 ease-out motion-reduce:transition-none",
+        className,
+      )}
     />
   );
 }
@@ -229,11 +240,15 @@ export function Stat({
   icon: Icon,
   label,
   value,
+  number,
   muted,
 }: {
   icon: LucideIcon;
   label: string;
-  value: string;
+  /** Shown as-is; ignored when `number` is given. */
+  value?: string;
+  /** Rolls to each new value (see AnimatedNumber). */
+  number?: { value: number | null; format: (n: number | null) => string };
   muted?: boolean;
 }) {
   return (
@@ -249,7 +264,7 @@ export function Stat({
             muted && "font-normal text-muted-foreground",
           )}
         >
-          {value}
+          {number ? <AnimatedNumber {...number} /> : value}
         </dd>
       </div>
     </div>
@@ -413,7 +428,7 @@ export function Combobox<
             onClick={() => pick(value)}
             aria-label="Send"
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-40",
+              "flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors disabled:bg-muted disabled:text-muted-foreground",
               size === "lg" ? "size-11" : "size-9",
             )}
           >
@@ -424,7 +439,7 @@ export function Combobox<
             type="button"
             disabled={!value.trim()}
             onClick={() => pick(value)}
-            className="h-9 shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40"
+            className="h-9 shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors disabled:bg-muted disabled:text-muted-foreground"
           >
             Add
           </button>
@@ -539,9 +554,19 @@ export function NutritionPanel({
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          {servings} {servings === 1 ? "serving" : "servings"} per recipe
-          {hasIngredients &&
-            ` · ${nutrition.counted} of ${nutrition.items.length} ingredients counted`}
+          <AnimatedNumber value={servings} format={fmtCount} />{" "}
+          {servings === 1 ? "serving" : "servings"} per recipe
+          {hasIngredients && (
+            <>
+              {" · "}
+              <AnimatedNumber value={nutrition.counted} format={fmtCount} /> of{" "}
+              <AnimatedNumber
+                value={nutrition.items.length}
+                format={fmtCount}
+              />{" "}
+              ingredients counted
+            </>
+          )}
         </p>
 
         {(hasIngredients ? nutrition.counted === 0 : !showZeros) ? (
@@ -561,7 +586,7 @@ export function NutritionPanel({
                 <span className="text-sm text-muted-foreground">Unavailable</span>
               ) : (
                 <span className="font-display text-5xl leading-none tabular-nums">
-                  {Math.round(calories ?? 0)}
+                  <AnimatedNumber value={calories ?? 0} format={fmtCount} />
                 </span>
               )}
             </div>
@@ -578,7 +603,10 @@ export function NutritionPanel({
                   {split.map((m) => (
                     <div
                       key={m.key}
-                      className={m.color}
+                      className={cn(
+                        m.color,
+                        "transition-[width] duration-300 ease-out motion-reduce:transition-none",
+                      )}
                       style={{ width: `${(m.kcal / macroSum) * 100}%` }}
                     />
                   ))}
@@ -589,7 +617,10 @@ export function NutritionPanel({
                       <span className={cn("size-2 rounded-full", m.color)} />
                       {m.label}{" "}
                       <span className="tabular-nums text-muted-foreground">
-                        {Math.round((m.kcal / macroSum) * 100)}%
+                        <AnimatedNumber
+                          value={(m.kcal / macroSum) * 100}
+                          format={fmtPercent}
+                        />
                       </span>
                     </li>
                   ))}
@@ -618,14 +649,22 @@ export function NutritionPanel({
                         {row.label}
                       </span>{" "}
                       <span className="tabular-nums">
-                        {fmtNutrient(value ?? 0, row.unit)}
+                        <AnimatedNumber
+                          value={value ?? 0}
+                          format={(v) => fmtNutrient(v, row.unit)}
+                        />
                         {partial(row.key) && <sup>†</sup>}
                       </span>
                     </dt>
                     <dd className="font-semibold tabular-nums">
-                      {dv && value !== null
-                        ? `${Math.round((value / dv) * 100)}%`
-                        : ""}
+                      {dv && value !== null ? (
+                        <AnimatedNumber
+                          value={(value / dv) * 100}
+                          format={fmtPercent}
+                        />
+                      ) : (
+                        ""
+                      )}
                     </dd>
                   </div>
                 );
@@ -665,14 +704,22 @@ export function NutritionPanel({
                     <span className="min-w-0">
                       <span className="block truncate">{i.name}</span>
                       <span className="block text-[11px] text-muted-foreground">
-                        {i.grams !== null
-                          ? `${Math.round(i.grams)} g`
-                          : "not counted"}
+                        {i.grams !== null ? (
+                          <AnimatedNumber
+                            value={i.grams}
+                            format={(g) => `${fmtCount(g)} g`}
+                          />
+                        ) : (
+                          "not counted"
+                        )}
                         {i.note && ` · ${i.note}`}
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums">
-                      {formatCalories(i.nutrients?.kcal ?? 0)}
+                      <AnimatedNumber
+                        value={i.nutrients?.kcal ?? 0}
+                        format={formatCalories}
+                      />
                       {i.nutrients?.kcal == null && <sup>†</sup>}
                     </span>
                   </li>

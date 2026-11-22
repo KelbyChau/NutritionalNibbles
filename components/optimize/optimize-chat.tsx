@@ -42,6 +42,8 @@ import {
   BUTTER,
   Combobox,
   IngredientArt,
+  AnimatedNumber,
+  fmtCount,
   NutritionPanel,
   goals,
   ingredientOptions,
@@ -686,8 +688,11 @@ function OptimizeChatPage() {
     return (
       <Shell title={title}>
         <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-4 text-center">
-          <span className="text-7xl" aria-hidden>
-            🍽️
+          <span
+            aria-hidden
+            className="flex size-20 items-center justify-center rounded-full bg-[hsl(45_84%_72%)]"
+          >
+            <UtensilsCrossed className="size-9 text-[hsl(230_50%_16%)]" />
           </span>
           <h2 className="mt-4 font-display text-4xl leading-tight">
             No recipe to optimize yet
@@ -881,7 +886,7 @@ function OptimizeChatPage() {
                 onClick={() => handle(`${Math.max(1, servings - 1)} servings`)}
               />
               <span className="font-semibold tabular-nums text-foreground">
-                {servings}
+                <AnimatedNumber value={servings} format={fmtCount} />
               </span>
               <IconButton
                 label="More servings"
@@ -1017,9 +1022,10 @@ function Shell({
         </div>
         <Link
           href="/optimize?draft=1"
+          aria-label="Edit ingredients"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
         >
-          <ArrowLeft className="size-4" />
+          <ArrowLeft className="size-4" aria-hidden />
           <span className="hidden sm:inline">Edit ingredients</span>
         </Link>
         {onSave && <SaveButton onSave={onSave} />}
@@ -1199,9 +1205,11 @@ function Comparison({
                 )}
               </dt>
               <dd className="tabular-nums text-muted-foreground">
-                {a === null ? "—" : display(a)}{r.before.partial && <sup>†</sup>} →{" "}
+                <AnimatedNumber value={a} format={(v) => (v === null ? "—" : display(v))} />
+                {r.before.partial && <sup>†</sup>} →{" "}
                 <span className="text-foreground">
-                  {b === null ? "—" : display(b)}{r.now.partial && <sup>†</sup>}
+                  <AnimatedNumber value={b} format={(v) => (v === null ? "—" : display(v))} />
+                  {r.now.partial && <sup>†</sup>}
                   {r.unit}
                 </span>
               </dd>
@@ -1213,11 +1221,16 @@ function Comparison({
                   !good && !bad && "text-muted-foreground",
                 )}
               >
-                {d === null
-                  ? ""
-                  : Math.abs(d) < threshold
-                    ? "same"
-                    : `${d > 0 ? "+" : "−"}${display(Math.abs(d))}`}
+                {d === null ? (
+                  ""
+                ) : Math.abs(d) < threshold ? (
+                  "same"
+                ) : (
+                  <AnimatedNumber
+                    value={d}
+                    format={(v) => (v === null ? "" : `${v > 0 ? "+" : "−"}${display(Math.abs(v))}`)}
+                  />
+                )}
               </dd>
             </div>
           );

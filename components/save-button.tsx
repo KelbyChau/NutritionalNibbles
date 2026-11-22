@@ -50,7 +50,7 @@ export function SaveButton({
         onClick={save}
         disabled={disabled || state === "saving"}
         aria-describedby={error ? "save-error" : undefined}
-        className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+        className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground"
       >
         <Icon className={state === "saving" ? "size-4 animate-spin" : "size-4"} />
         {state === "saving"

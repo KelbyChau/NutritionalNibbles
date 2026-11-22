@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import {
   ArrowRight,
   ChefHat,
@@ -30,6 +31,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AnimatedNumber, fmtCount } from "@/components/animated-number";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { useAllRecipes } from "@/components/dashboard/use-all-recipes";
 import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
@@ -91,7 +93,16 @@ export function RecipeDashboard({
     [allRecipes, userId, deleted],
   );
 
+  // True for a moment after a delete, so only deletes animate the list
+  // (searching and filtering still update instantly).
+  const [animateList, setAnimateList] = useState(false);
+  const animateTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(animateTimer.current), []);
+
   async function removeRecipe(id: string) {
+    setAnimateList(true);
+    clearTimeout(animateTimer.current);
+    animateTimer.current = setTimeout(() => setAnimateList(false), 400);
     setDeleted((d) => new Set(d).add(id));
     try {
       await deleteMyRecipe(id);
@@ -208,7 +219,7 @@ export function RecipeDashboard({
         <Button asChild className="h-11 rounded-full px-5 shadow-none">
           <Link href="/optimize">
             <Plus />
-            Create Recipe
+            Create a recipe
           </Link>
         </Button>
       </header>
@@ -321,34 +332,64 @@ export function RecipeDashboard({
         >
           <p className="mb-3 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
             <span>
-              {visible.length} {visible.length === 1 ? "recipe" : "recipes"}
+              <AnimatedNumber value={visible.length} format={fmtCount} />{" "}
+              {visible.length === 1 ? "recipe" : "recipes"}
             </span>
           </p>
           <ul className="flex min-h-0 flex-1 flex-col gap-4 lg:overflow-y-auto lg:pb-2 lg:pr-1">
-            {visible.map((recipe) => (
-              <li key={recipe.id}>
-                <RecipeCard
-                  recipe={recipe}
-                  active={recipe.id === selectedId}
-                  onSelect={() => {
-                    setSelectedId(recipe.id);
-                    // Open it in the recipe builder with its ingredients.
-                    router.push(`/optimize?recipe=${recipe.id}`);
-                  }}
-                  onDelete={
-                    recipe.owner_id === userId
-                      ? () => void removeRecipe(recipe.id)
-                      : undefined
-                  }
-                />
-              </li>
-            ))}
+            {/* A deleted card fades and collapses; the cards below slide up
+                to close the gap. */}
+            <AnimatePresence initial={false} custom={deleted}>
+              {visible.map((recipe) => (
+                <motion.li
+                  key={recipe.id}
+                  layout={animateList ? "position" : false}
+                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                  variants={cardExit(recipe.id)}
+                  custom={deleted}
+                  exit="exit"
+                >
+                  <RecipeCard
+                    recipe={recipe}
+                    active={recipe.id === selectedId}
+                    onSelect={() => {
+                      setSelectedId(recipe.id);
+                      // Open it in the recipe builder with its ingredients.
+                      router.push(`/optimize?recipe=${recipe.id}`);
+                    }}
+                    onDelete={
+                      recipe.owner_id === userId
+                        ? () => void removeRecipe(recipe.id)
+                        : undefined
+                    }
+                  />
+                </motion.li>
+              ))}
+            </AnimatePresence>
           </ul>
         </aside>
       </div>
     </div>
   );
 }
+
+// Exit for a recipe card. AnimatePresence hands the current `deleted` set to
+// cards as they leave: a deleted card fades and collapses (taking the list's
+// 16px gap with it) so the ones below slide up; a card that only left because
+// of a search or filter disappears instantly.
+const cardExit = (id: string): Variants => ({
+  exit: (deleted: Set<string>) =>
+    deleted.has(id)
+      ? {
+          opacity: 0,
+          scale: 0.96,
+          height: 0,
+          marginTop: -16,
+          overflow: "hidden",
+          transition: { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
+        }
+      : { opacity: 0, transition: { duration: 0 } },
+});
 
 const chipClass =
   "inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40 data-[state=open]:border-foreground/40";
@@ -395,27 +436,38 @@ function FilterMenu({
 }
 
 function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
+  // Each stat rolls to the new value when a different recipe is shown.
   const stats: {
     icon: LucideIcon;
-    value: string;
+    value: number | null;
+    unit: string;
     label: string;
   }[] = [
     {
       icon: Flame,
-      value: fmt(recipe.calories_per_serving, " kcal"),
+      value: recipe.calories_per_serving,
+      unit: " kcal",
       label: "Calories",
     },
     {
       icon: Dumbbell,
-      value: fmt(recipe.protein_g_per_serving, "g"),
+      value: recipe.protein_g_per_serving,
+      unit: "g",
       label: "Protein",
     },
     {
       icon: UtensilsCrossed,
-      value: `${recipe.ingredient_count}`,
+      value: recipe.ingredient_count,
+      unit: "",
       label: "Ingredients",
     },
-    { icon: Clock, value: `${totalMinutes(recipe)} min`, label: "Time" },
+    // Recipes saved from the builder have no cooking time: show "–", not 0.
+    {
+      icon: Clock,
+      value: totalMinutes(recipe) || null,
+      unit: " min",
+      label: "Time",
+    },
   ];
 
   // Plate grows with the recipe: a 3-ingredient dish gets a small plate,
@@ -471,14 +523,16 @@ function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
 
       <div className="surface-paper rounded-3xl bg-card p-4 shadow-[0_24px_48px_-32px_hsl(230_60%_15%/0.45)] sm:p-5">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {stats.map(({ icon: Icon, value, label }) => (
+          {stats.map(({ icon: Icon, value, unit, label }) => (
             <div key={label} className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
                 <Icon className="size-4" />
               </span>
               <div className="flex flex-col-reverse">
                 <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="font-semibold tabular-nums">{value}</dd>
+                <dd className="font-semibold tabular-nums">
+                  <AnimatedNumber value={value} format={(n) => fmt(n, unit)} />
+                </dd>
               </div>
             </div>
           ))}
@@ -486,7 +540,9 @@ function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="size-3.5" />
-            Per serving, {recipe.servings} servings. Estimated macros.
+            Per serving,{" "}
+            <AnimatedNumber value={recipe.servings} format={fmtCount} />{" "}
+            servings. Estimated macros.
           </p>
           <Button asChild size="sm" className="rounded-full px-4 shadow-none">
             <Link href={`/optimize?recipe=${recipe.id}`}>
@@ -538,13 +594,18 @@ function RecipeCard({
           {recipe.title}
         </h3>
         <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Clock className="size-3.5" />
-          <span className="whitespace-nowrap">
-            {totalMinutes(recipe)} minutes
-          </span>
+          {/* Saved recipes have no cooking time; skip it rather than "0 minutes". */}
+          {totalMinutes(recipe) > 0 && (
+            <>
+              <Clock className="size-3.5" aria-hidden />
+              <span className="whitespace-nowrap">
+                {totalMinutes(recipe)} minutes
+              </span>
+            </>
+          )}
           {recipe.protein_g_per_serving !== null && (
             <>
-              <span aria-hidden>·</span>
+              {totalMinutes(recipe) > 0 && <span aria-hidden>·</span>}
               <span className="whitespace-nowrap">
                 {Math.round(recipe.protein_g_per_serving)}g protein
               </span>
@@ -625,7 +686,7 @@ function EmptyState({
         {!hasRecipes && !loadError && (
           <Button asChild className="mt-6 rounded-full px-6 shadow-none">
             <Link href="/optimize">
-              Create Recipe
+              Create a recipe
               <ArrowRight />
             </Link>
           </Button>
