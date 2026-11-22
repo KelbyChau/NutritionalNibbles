@@ -21,7 +21,6 @@ export type RecipeListItem = {
   protein_g_per_serving: number | null;
   carbohydrates_g_per_serving: number | null;
   fat_g_per_serving: number | null;
-  is_public: boolean;
   created_at: string;
 };
 
@@ -38,7 +37,7 @@ export type RecipePage = {
 export const MAX_PAGE_SIZE = 100;
 
 export type ListOptions = {
-  scope: "all" | "mine" | "public";
+  scope: "all" | "mine";
   limit: number;
   /** Start after this recipe (from a previous page's `next`), or null for the first page. */
   cursor: RecipeCursor | null;
@@ -50,7 +49,7 @@ export type ListOptions = {
  * return `ingredient_count` instead of the full ingredient array.
  */
 const RECIPE_LIST_COLUMNS =
-  "id, owner_id, title, description, image_url, cuisine, dietary_tags, prep_minutes, cook_minutes, servings, ingredients, calories_per_serving, protein_g_per_serving, carbohydrates_g_per_serving, fat_g_per_serving, is_public, created_at";
+  "id, owner_id, title, description, image_url, cuisine, dietary_tags, prep_minutes, cook_minutes, servings, ingredients, calories_per_serving, protein_g_per_serving, carbohydrates_g_per_serving, fat_g_per_serving, created_at";
 
 // Cursor values go inside a PostgREST filter string, so only accept the shapes
 // Postgres produces: an ISO timestamp and a UUID.
@@ -83,7 +82,6 @@ export async function listRecipes(
     .limit(limit + 1);
 
   if (scope === "mine" && userId) query = query.eq("owner_id", userId);
-  if (scope === "public") query = query.eq("is_public", true);
   if (cursor) {
     // Rows after the cursor in (created_at desc, id desc) order.
     query = query.or(

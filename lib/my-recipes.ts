@@ -63,7 +63,6 @@ export function saveMyRecipe(input: {
     protein_g_per_serving: round(n.protein),
     carbohydrates_g_per_serving: round(n.carbs),
     fat_g_per_serving: round(n.fat),
-    is_public: false,
     created_at: existing?.created_at ?? new Date().toISOString(),
     ingredients: input.ingredients.map((i) => ({
       fdc_id: i.food.fdc_id,

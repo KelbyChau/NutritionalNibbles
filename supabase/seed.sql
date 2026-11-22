@@ -3,8 +3,9 @@
 -- Supabase project.
 --
 -- Demo accounts (password for both: demo-password):
---   demo@example.com   3 private recipes, 2 saved recipes
---   demo2@example.com  1 private recipe, which demo@example.com must not see
+--   demo@example.com   15 recipes, 2 saved recipes
+--   demo2@example.com  1 recipe, which demo@example.com must not see
+-- Every recipe belongs to its owner only; there are no public recipes.
 --
 -- Recipes are created with public.save_foundation_recipe(), the same function
 -- the app saves with: ingredients reference USDA Foundation Foods by fdc_id,
@@ -233,15 +234,15 @@ begin
 ]
 $recipes$::jsonb)
   loop
-    owner := case recipe->>'owner' when 'demo' then demo when 'demo2' then demo2 end;
+    -- Recipes without an owner in the list below go to demo@example.com.
+    owner := case recipe->>'owner' when 'demo2' then demo2 else demo end;
 
     -- save_foundation_recipe() saves as the signed-in user, so act as one.
     perform set_config('request.jwt.claims',
-      json_build_object('sub', coalesce(owner, demo), 'role', 'authenticated')::text, true);
+      json_build_object('sub', owner, 'role', 'authenticated')::text, true);
     new_id := public.save_foundation_recipe(recipe->>'title', (recipe->>'servings')::int, recipe->'items');
 
-    -- Fill in what the save function doesn't take. Recipes without an owner
-    -- become public catalogue recipes.
+    -- Fill in what the save function doesn't take.
     update public.recipes set
       description  = recipe->>'description',
       cuisine      = recipe->>'cuisine',
@@ -250,7 +251,6 @@ $recipes$::jsonb)
       cook_minutes = (recipe->>'cook')::int,
       instructions = recipe->'steps',
       owner_id     = owner,
-      is_public    = owner is null,
       created_at   = now() - (recipe->>'hours_ago')::numeric * interval '1 hour'
     where id = new_id;
 
