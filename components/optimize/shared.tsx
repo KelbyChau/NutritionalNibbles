@@ -89,7 +89,14 @@ export const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
 
 // ---- USDA catalog ------------------------------------------------------------
 
-export function useFoundationFoods() {
+const FOOD_COLUMNS =
+  "fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g";
+const PAGE = 1000; // Supabase returns at most 1,000 rows per request
+
+// Every USDA food the app can use, from both catalogs: Foundation Foods
+// (newer data, listed first so it wins ties in search) and SR Legacy
+// (~7,800 more, including brand-name foods). One list, one search field.
+export function useUsdaFoods() {
   const [foods, setFoods] = useState<FoundationFood[]>([]);
   const [status, setStatus] = useState("Loading USDA ingredients…");
   const [attempt, setAttempt] = useState(0);
@@ -97,15 +104,28 @@ export function useFoundationFoods() {
     let current = true;
     async function load() {
       try {
-        const { data, error } = await createClient()
-          .from("foundation_foods")
-          .select(
-            "fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g",
-          )
-          .order("fdc_id");
-        if (error || !data?.length) throw new Error("Catalog unavailable");
+        const supabase = createClient();
+        const [foundation, legacyCount] = await Promise.all([
+          supabase.from("foundation_foods").select(FOOD_COLUMNS).order("fdc_id"),
+          supabase.from("sr_legacy_foods").select("fdc_id", { count: "exact", head: true }),
+        ]);
+        if (foundation.error || !foundation.data?.length || legacyCount.error)
+          throw new Error("Catalog unavailable");
+        const pages = await Promise.all(
+          Array.from({ length: Math.ceil((legacyCount.count ?? 0) / PAGE) }, (_, i) =>
+            supabase
+              .from("sr_legacy_foods")
+              .select(FOOD_COLUMNS)
+              .order("fdc_id")
+              .range(i * PAGE, (i + 1) * PAGE - 1),
+          ),
+        );
+        if (pages.some((page) => page.error)) throw new Error("Catalog unavailable");
         if (current) {
-          setFoods(data);
+          setFoods([
+            ...foundation.data.map((f) => ({ ...f, source: "foundation" as const })),
+            ...pages.flatMap((page) => page.data ?? []).map((f) => ({ ...f, source: "sr_legacy" as const })),
+          ]);
           setStatus("");
         }
       } catch {

@@ -36,7 +36,7 @@ import {
   loadDraft,
   makeIngredient,
   saveDraft,
-  useFoundationFoods,
+  useUsdaFoods,
   type GoalKey,
   type Ingredient,
 } from "./shared";
@@ -69,7 +69,7 @@ type Suggestion = {
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 export function OptimizeChat() {
-  const { foods, status: catalogStatus } = useFoundationFoods();
+  const { foods, status: catalogStatus } = useUsdaFoods();
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
   const [servings, setServings] = useState(2);
