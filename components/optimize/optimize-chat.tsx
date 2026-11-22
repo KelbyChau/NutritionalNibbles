@@ -673,7 +673,7 @@ function OptimizeChatPage() {
             <div ref={logEnd} />
           </div>
 
-          <div className="surface-glass sticky bottom-0 mx-auto w-full max-w-3xl rounded-t-[24px] pt-3">
+          <div className="surface-glass mx-auto w-full max-w-3xl rounded-t-[24px] pt-3">
             <div className="mb-2 flex flex-wrap gap-2">
               {goals.map((g) => {
                 const Icon = g.icon;
@@ -685,7 +685,7 @@ function OptimizeChatPage() {
                     aria-pressed={on}
                     onClick={() => runAction({ type: "goal", goal: g.key })}
                     className={cn(
-                      "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       on
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-secondary-foreground hover:bg-secondary/70",

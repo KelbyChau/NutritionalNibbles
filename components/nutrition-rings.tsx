@@ -84,6 +84,9 @@ export function NutritionRings({
               <g key={ring.key} transform={`rotate(-90 ${size / 2} ${size / 2})`}>
                 <circle {...common} strokeOpacity={0.16} />
                 <motion.circle
+                  // Remount when the reduce-motion setting is read after the
+                  // page loads, so the arc is drawn in place, not animated.
+                  key={String(reduce)}
                   {...common}
                   strokeLinecap="round"
                   initial={reduce ? false : { pathLength: 0 }}

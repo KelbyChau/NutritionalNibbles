@@ -198,7 +198,7 @@ export function RecipeDashboard({
                 >
                   <span
                     className={cn(
-                      "flex size-12 items-center justify-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring",
+                      "flex size-12 items-center justify-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background",
                       active
                         ? "bg-primary text-primary-foreground"
                         : "bg-card text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06)] group-hover:bg-secondary",

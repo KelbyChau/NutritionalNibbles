@@ -163,7 +163,7 @@ export function RecipeCard({
         }
       }}
       className={cn(
-        "relative flex cursor-pointer items-center gap-4 rounded-card bg-card p-3 pr-4 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:shadow-none",
+        "relative flex cursor-pointer items-center gap-4 rounded-card bg-card p-3 pr-4 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:shadow-none",
         active ? "ring-2 ring-primary" : "hover:bg-secondary/60",
       )}
     >
