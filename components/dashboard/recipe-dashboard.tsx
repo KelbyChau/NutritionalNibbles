@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ChefHat,
@@ -17,6 +17,7 @@ import {
   Salad,
   Search,
   Timer,
+  Trash2,
   Users,
   UtensilsCrossed,
   Plus,
@@ -31,8 +32,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { useAllRecipes } from "@/components/dashboard/use-all-recipes";
 import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
+import { deleteMyRecipe, isMyRecipe, loadMyRecipes } from "@/lib/my-recipes";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -65,13 +66,12 @@ const BUTTER = "bg-[hsl(45_84%_72%)]";
 
 const totalMinutes = (r: DashboardRecipe) => r.prep_minutes + r.cook_minutes;
 
+// For now the dashboard lists only the recipes saved in this browser; the
+// built-in database recipes (initialRecipes / nextCursor) aren't shown.
 export function RecipeDashboard({
-  initialRecipes,
-  nextCursor,
   savedIds,
   userId,
   userEmail,
-  loadError,
 }: {
   /** First page, rendered on the server. */
   initialRecipes: DashboardRecipe[];
@@ -82,10 +82,17 @@ export function RecipeDashboard({
   userEmail: string | null;
   loadError: string | null;
 }) {
-  const { recipes, loadingMore, loadMoreError, retry } = useAllRecipes(
-    initialRecipes,
-    nextCursor,
-  );
+  // Recipes saved from the builder / optimize page live in this browser.
+  const [recipes, setRecipes] = useState<DashboardRecipe[]>([]);
+  useEffect(() => setRecipes(loadMyRecipes()), []);
+
+  function removeRecipe(id: string) {
+    try {
+      setRecipes(deleteMyRecipe(id));
+    } catch {
+      // Storage blocked: leave the list as it is.
+    }
+  }
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category>("all");
   const [cuisine, setCuisine] = useState(ANY);
@@ -118,9 +125,11 @@ export function RecipeDashboard({
       }
       if (cuisine !== ANY && r.cuisine !== cuisine) return false;
       if (diet !== ANY && !r.dietary_tags.includes(diet)) return false;
+      const isSaved =
+        isMyRecipe(r.id) || (r.owner_id !== null && r.owner_id === userId);
       switch (category) {
         case "mine":
-          return r.owner_id !== null && r.owner_id === userId;
+          return isSaved;
         case "saved":
           return saved.has(r.id);
         case "quick":
@@ -326,10 +335,14 @@ export function RecipeDashboard({
             <FeaturedRecipe
               recipe={featured}
               saved={saved.has(featured.id)}
-              onToggleSave={canSave ? () => toggleSave(featured.id) : undefined}
+              onToggleSave={
+                canSave && !isMyRecipe(featured.id)
+                  ? () => toggleSave(featured.id)
+                  : undefined
+              }
             />
           ) : (
-            <EmptyState loadError={loadError} hasRecipes={recipes.length > 0} />
+            <EmptyState loadError={null} hasRecipes={recipes.length > 0} />
           )}
         </section>
 
@@ -342,19 +355,6 @@ export function RecipeDashboard({
             <span>
               {visible.length} {visible.length === 1 ? "recipe" : "recipes"}
             </span>
-            {loadingMore && <span aria-live="polite">· Loading more…</span>}
-            {loadMoreError && (
-              <span role="alert">
-                · Couldn&apos;t load all recipes.{" "}
-                <button
-                  type="button"
-                  onClick={retry}
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                >
-                  Retry
-                </button>
-              </span>
-            )}
           </p>
           <ul className="flex min-h-0 flex-1 flex-col gap-4 lg:overflow-y-auto lg:pb-2 lg:pr-1">
             {visible.map((recipe) => (
@@ -369,7 +369,14 @@ export function RecipeDashboard({
                     router.push(`/optimize?recipe=${recipe.id}`);
                   }}
                   onToggleSave={
-                    canSave ? () => toggleSave(recipe.id) : undefined
+                    canSave && !isMyRecipe(recipe.id)
+                      ? () => toggleSave(recipe.id)
+                      : undefined
+                  }
+                  onDelete={
+                    isMyRecipe(recipe.id)
+                      ? () => removeRecipe(recipe.id)
+                      : undefined
                   }
                 />
               </li>
@@ -558,12 +565,14 @@ function RecipeCard({
   saved,
   onSelect,
   onToggleSave,
+  onDelete,
 }: {
   recipe: DashboardRecipe;
   active: boolean;
   saved: boolean;
   onSelect: () => void;
   onToggleSave?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     // The whole card is the control: click, Enter or Space selects it.
@@ -605,6 +614,21 @@ function RecipeCard({
             </>
           )}
         </p>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+            aria-label={`Delete ${recipe.title} from saved recipes`}
+            title="Delete recipe"
+            className="mt-auto flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        )}
       </div>
 
       <div className="relative w-[42%] shrink-0">

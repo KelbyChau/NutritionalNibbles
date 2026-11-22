@@ -16,9 +16,11 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SaveButton } from "@/components/save-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { parseIngredient } from "@/lib/ingredients";
 import { calculateNutrition } from "@/lib/nutrition";
+import { getMyRecipe, isMyRecipe, saveMyRecipe } from "@/lib/my-recipes";
 import { createClient } from "@/lib/supabase/client";
 import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,7 @@ import {
   fmtNutrient,
   formatCalories,
   ingredientOptions,
+  clearDraft,
   loadDraft,
   makeIngredient,
   saveDraft,
@@ -66,7 +69,15 @@ const sampleIngredients = [
   { name: "Salt", amount: "", unit: "" },
 ];
 
+// Next keeps visited pages alive (cacheComponents + <Activity>), so without
+// this a fresh visit would show the last recipe. Keying on bfcacheId starts a
+// new page on every link/push, while the Back button still restores it.
 export function RecipeBuilder() {
+  const { bfcacheId } = useRouter();
+  return <RecipeBuilderPage key={bfcacheId} />;
+}
+
+function RecipeBuilderPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [servings, setServings] = useState(2);
@@ -79,6 +90,8 @@ export function RecipeBuilder() {
   // undefined until the URL has been read on the client.
   const [recipeId, setRecipeId] = useState<string | null | undefined>();
   const [recipeStatus, setRecipeStatus] = useState("");
+  // Id of this recipe in the user's saved recipes, once it has been saved.
+  const [savedId, setSavedId] = useState<string | null>(null);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("recipe");
     setRecipeId(id);
@@ -88,11 +101,14 @@ export function RecipeBuilder() {
     if (!recipeId || !foods.length) return;
     let current = true;
     async function load() {
-      const { data, error } = await createClient()
-        .from("recipes")
-        .select("title, servings, ingredients")
-        .eq("id", recipeId!)
-        .maybeSingle();
+      // Recipes saved in this browser ("local-…") vs. database recipes.
+      const { data, error } = isMyRecipe(recipeId!)
+        ? { data: getMyRecipe(recipeId!), error: null }
+        : await createClient()
+            .from("recipes")
+            .select("title, servings, ingredients")
+            .eq("id", recipeId!)
+            .maybeSingle();
       if (!current) return;
       if (error || !data) {
         setRecipeStatus("Couldn’t load that recipe.");
@@ -113,7 +129,8 @@ export function RecipeBuilder() {
           makeIngredient(
             food,
             {
-              amount: item.amount == null ? "" : String(Number(item.amount)),
+              // Saved recipes keep amounts as typed ("1/2"); the database stores grams.
+              amount: item.amount == null ? "" : String(item.amount),
               unit: item.unit ?? "g",
             },
             id++,
@@ -125,6 +142,8 @@ export function RecipeBuilder() {
       setIngredients(list);
       nextId.current = id;
       setRecipeStatus("");
+      // Saving again updates this recipe instead of adding a copy.
+      if (isMyRecipe(recipeId!)) setSavedId(recipeId!);
     }
     void load();
     return () => {
@@ -132,14 +151,21 @@ export function RecipeBuilder() {
     };
   }, [recipeId, foods]);
 
-  // Coming back from the chat page: pick up the recipe where it was left.
+  // A new recipe (plain /optimize, e.g. "Create Recipe") always starts empty.
+  // Only coming back from the optimize page (/optimize?draft=1) picks up the
+  // recipe where it was left.
   useEffect(() => {
     if (recipeId !== null) return;
+    if (!new URLSearchParams(window.location.search).has("draft")) {
+      clearDraft();
+      return;
+    }
     const draft = loadDraft();
     if (!draft) return;
     setTitle(draft.title);
     setServings(draft.servings);
     setIngredients(draft.current);
+    setSavedId(draft.savedId ?? null);
     nextId.current = Math.max(0, ...draft.current.map((i) => i.id)) + 1;
   }, [recipeId]);
 
@@ -169,15 +195,40 @@ export function RecipeBuilder() {
     setIngredients((list) => list.filter((i) => i.id !== id));
   }
 
+  // Every recipe needs a name: Save and Optimize stop and point at the
+  // dish-name field until there is one.
+  const [nameMissing, setNameMissing] = useState(false);
+  const titleInput = useRef<HTMLInputElement>(null);
+  function requireName() {
+    if (title.trim()) return true;
+    setNameMissing(true);
+    titleInput.current?.focus();
+    return false;
+  }
+
   function optimize() {
-    if (!ingredients.length) return;
+    if (!ingredients.length || !requireName()) return;
     saveDraft({
       title,
       servings,
       original: ingredients,
       current: ingredients,
+      savedId,
     });
+    // So the browser's Back button returns to this recipe, not a blank one.
+    window.history.replaceState(null, "", "/optimize?draft=1");
     router.push("/optimize/chat");
+  }
+
+  function save() {
+    if (!requireName()) return false;
+    const recipe = saveMyRecipe({
+      id: savedId,
+      title,
+      servings,
+      ingredients,
+    });
+    setSavedId(recipe.id);
   }
 
   return (
@@ -194,6 +245,10 @@ export function RecipeBuilder() {
         <h1 className="mr-auto font-display text-3xl leading-none tracking-tight sm:text-4xl">
           {recipeId ? "Edit Recipe" : "New Recipe"}
         </h1>
+        <SaveButton
+          onSave={save}
+          disabled={!ingredients.length}
+        />
         <Link
           href="/dashboard"
           className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
@@ -226,7 +281,16 @@ export function RecipeBuilder() {
       <div className="flex min-h-0 flex-1 flex-col gap-6 px-4 pb-5 pt-4 sm:px-6 lg:px-8 xl:flex-row xl:gap-6">
         {/* Stage + stats */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <Stage title={title} onTitle={setTitle} ingredients={ingredients} />
+          <Stage
+            title={title}
+            onTitle={(t) => {
+              setTitle(t);
+              if (t.trim()) setNameMissing(false);
+            }}
+            ingredients={ingredients}
+            nameMissing={nameMissing}
+            inputRef={titleInput}
+          />
 
           <div className="surface-paper rounded-3xl bg-card p-4 shadow-[0_24px_48px_-32px_hsl(230_60%_15%/0.45)] sm:px-6">
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -357,21 +421,41 @@ function Stage({
   title,
   onTitle,
   ingredients,
+  nameMissing,
+  inputRef,
 }: {
   title: string;
   onTitle: (t: string) => void;
   ingredients: Ingredient[];
+  nameMissing: boolean;
+  inputRef: React.Ref<HTMLInputElement>;
 }) {
   const shown = ingredients.slice(0, spots.length);
   return (
     <div className="relative mb-4 min-h-[20rem] flex-1">
       <input
+        ref={inputRef}
         value={title}
         onChange={(e) => onTitle(e.target.value)}
         placeholder="Name your dish"
         aria-label="Dish name"
-        className="relative z-10 w-full max-w-[70%] bg-transparent font-display text-4xl leading-tight tracking-tight outline-none placeholder:text-muted-foreground/60 sm:text-5xl"
+        aria-required
+        aria-invalid={nameMissing || undefined}
+        aria-describedby={nameMissing ? "dish-name-error" : undefined}
+        className={cn(
+          "relative z-10 w-full max-w-[70%] border-b-2 border-transparent bg-transparent font-display text-4xl leading-tight tracking-tight outline-none placeholder:text-muted-foreground/60 sm:text-5xl",
+          nameMissing && "border-destructive placeholder:text-destructive/70",
+        )}
       />
+      {nameMissing && (
+        <p
+          id="dish-name-error"
+          role="alert"
+          className="relative z-10 mt-1 text-sm font-medium text-destructive"
+        >
+          Add a name for your recipe first.
+        </p>
+      )}
       <div className="absolute inset-0 top-14 flex items-center justify-center">
         {/* the "plate": butter blob from the landing hero */}
         <div className="relative aspect-square h-full max-h-[30rem] max-w-full">
