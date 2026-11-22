@@ -8,7 +8,7 @@ export async function generateRows(
   maxItems: number,
   signal: AbortSignal,
 ): Promise<unknown[]> {
-  const model = encodeURIComponent(process.env.GEMINI_MODEL || "gemini-3.8-flash");
+  const model = encodeURIComponent(process.env.GEMINI_MODEL || "gemini-3.5-flash-lite");
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
