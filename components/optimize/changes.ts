@@ -1,9 +1,8 @@
 // Recipe changes for the optimize chat: curated USDA swaps, "use less/more"
 // scaling, and the before/after math behind every suggestion.
 //
-// There is no AI optimizer yet. Suggestions come from the swap list below
-// and are only offered when the recalculated nutrition actually moves the
-// chosen goal in the right direction.
+// The preset goals use the swap list below and only offer changes that
+// move the recalculated nutrition in the requested direction.
 
 import {
   calculateNutrition,

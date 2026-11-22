@@ -5,6 +5,8 @@ export type FoundationFood = {
   protein_per_100g: number | null;
   carbs_per_100g: number | null;
   fat_per_100g: number | null;
+  total_sugars_g_per_100g?: number | null;
+  sodium_mg_per_100g?: number | null;
   // Which USDA catalog it came from. Only used to rank search results;
   // both catalogs share one search field.
   source?: "foundation" | "sr_legacy";
