@@ -38,7 +38,7 @@ import {
   loadDraft,
   makeIngredient,
   saveDraft,
-  useFoundationFoods,
+  useUsdaFoods,
   type GoalKey,
   type Ingredient,
 } from "./shared";
@@ -79,7 +79,7 @@ export function OptimizeChat() {
 }
 
 function OptimizeChatPage() {
-  const { foods, status: catalogStatus } = useFoundationFoods();
+  const { foods, status: catalogStatus } = useUsdaFoods();
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
   const [servings, setServings] = useState(2);

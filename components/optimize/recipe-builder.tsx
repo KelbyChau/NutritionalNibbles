@@ -37,7 +37,7 @@ import {
   loadDraft,
   makeIngredient,
   saveDraft,
-  useFoundationFoods,
+  useUsdaFoods,
   type Ingredient,
 } from "./shared";
 
@@ -83,7 +83,7 @@ function RecipeBuilderPage() {
   const [servings, setServings] = useState(2);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const nextId = useRef(1);
-  const { foods, status: catalogStatus, retry } = useFoundationFoods();
+  const { foods, status: catalogStatus, retry } = useUsdaFoods();
 
   // Opened from the dashboard (/optimize?recipe=<id>): load that recipe once
   // the USDA catalog is ready, since ingredients are stored by fdc_id.
