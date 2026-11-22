@@ -40,7 +40,9 @@ export async function bodyText(page: Page) {
 }
 
 // The USDA food list loads in the background; matching and search need it.
+// The chat page shows no loading message, so also wait for the requests to finish.
 export async function waitForCatalog(page: Page) {
+  await page.waitForLoadState("networkidle", { timeout: 60_000 });
   await expect(page.getByText("Loading USDA ingredients…")).toHaveCount(0, { timeout: 60_000 });
 }
 
