@@ -13,11 +13,12 @@ const MAX_BYTES = 4 * 1024 * 1024; // recipe pages are big, but not this big
 const MAX_REDIRECTS = 5;
 
 export class ImportError extends Error {
-  constructor(
-    message: string,
-    public status = 400,
-  ) {
+  // A plain field, not a constructor parameter property, so Node's test
+  // runner (which only strips types) can load this file.
+  status: number;
+  constructor(message: string, status = 400) {
     super(message);
+    this.status = status;
   }
 }
 
