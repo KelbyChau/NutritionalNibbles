@@ -206,7 +206,10 @@ function RecipeBuilderPage() {
       unit: i.unit,
     }));
     nextId.current = id;
-    if (recipe.title) setTitle(recipe.title);
+    if (recipe.title) {
+      setTitle(recipe.title);
+      setNameMissing(false);
+    }
     setServings(recipe.servings);
     setIngredients(list);
     setRecipeStatus("");

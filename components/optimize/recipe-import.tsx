@@ -25,7 +25,7 @@ import { calculateNutrition } from "@/lib/nutrition";
 import { matchFood, parseLine, type FoodMatch } from "@/lib/recipe-url/ingredient-lines";
 import type { ScrapedRecipe } from "@/lib/recipe-url/extract";
 import { cn } from "@/lib/utils";
-import { formatCalories } from "./shared";
+import { formatCalories, IngredientArt } from "./shared";
 
 export type ImportedRecipe = {
   title: string;
@@ -166,10 +166,11 @@ export function RecipeImport({
     <>
       <button
         type="button"
+        aria-label="Import a recipe"
         onClick={open}
         className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm transition-colors hover:border-foreground/40"
       >
-        <Import className="size-4" />
+        <Import className="size-4" aria-hidden />
         <span className="hidden sm:inline">Import</span>
       </button>
 
@@ -304,10 +305,14 @@ export function RecipeImport({
                 <div className="mr-auto text-sm">
                   <p className="font-medium">
                     {included.length} of {rows.length} ingredients will be added
-                    {nutrition.counted > 0 && (
+                    {included.length > 0 && (
                       <span className="font-normal text-muted-foreground">
-                        {" "}
-                        · ≈ {formatCalories(nutrition.perServing.kcal)} per serving
+                        {" · "}
+                        {nutrition.knownCalories.perServing === null
+                          ? "Calories unavailable"
+                          : `≈ ${formatCalories(nutrition.knownCalories.perServing)} per serving`}
+                        {nutrition.knownCalories.counted > 0 && nutrition.knownCalories.counted < included.length &&
+                          ` (subtotal for ${nutrition.knownCalories.counted} of ${included.length} ingredients)`}
                       </span>
                     )}
                   </p>
@@ -362,7 +367,7 @@ function ReviewRow({
     ? calculateNutrition([{ name: row.raw, food: row.food, amount: row.amount, unit: row.unit }], servings).items[0]
     : null;
   const units = UNITS.includes(row.unit) ? UNITS : [row.unit, ...UNITS];
-  const emoji = row.food ? lookupIngredient(foodLabel(row.food.description)).emoji : "🥣";
+  const foodName = row.food ? foodLabel(row.food.description) : null;
 
   return (
     <li
@@ -384,11 +389,13 @@ function ReviewRow({
           <p className="break-words text-sm font-medium">{row.raw}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-lg leading-none" aria-hidden>
-              {emoji}
-            </span>
+            {foodName && (
+              <span aria-hidden>
+                <IngredientArt ingredient={lookupIngredient(foodName)} sizeRem={1.5} />
+              </span>
+            )}
             <span className={cn("min-w-0 truncate text-sm", !row.food && "text-muted-foreground")}>
-              {row.food ? foodLabel(row.food.description) : "No USDA match"}
+              {foodName ?? "No USDA match"}
             </span>
             <MatchBadge confidence={row.confidence} />
             {foods.length > 0 && (
