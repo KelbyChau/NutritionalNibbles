@@ -217,7 +217,9 @@ export function suggestChanges(
   for (const ing of ingredients) {
     const rule = findSwapRule(ing.food.fdc_id);
     const to = rule && byId.get(rule.to);
-    if (rule && to) {
+    // No swap to a food the recipe already has: it would be listed twice.
+    const alreadyThere = to && ingredients.some((i) => i.food.fdc_id === to.fdc_id);
+    if (rule && to && !alreadyThere) {
       candidates.push({
         kind: "swap",
         id: ing.id,

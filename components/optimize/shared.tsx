@@ -281,6 +281,24 @@ export function alreadyAddedMessage(ingredient: Ingredient) {
   return `${ingredient.name} is already in the recipe. Change its amount instead of adding it again.`;
 }
 
+/**
+ * The ingredient that a change would list twice: a food the recipe already
+ * has, brought in again (e.g. swapping butter for olive oil when olive oil is
+ * already there). Undefined when the change adds no duplicate.
+ */
+export function newDuplicate(before: Ingredient[], after: Ingredient[]) {
+  const count = (list: Ingredient[], fdcId: number) =>
+    list.filter((i) => i.food.fdc_id === fdcId).length;
+  return after.find(
+    (i) => count(after, i.food.fdc_id) > Math.max(1, count(before, i.food.fdc_id)),
+  );
+}
+
+/** Message for a swap to a food that's already in the recipe. */
+export function duplicateSwapMessage(ingredient: Ingredient) {
+  return `${ingredient.name} is already in the recipe, so that swap would list it twice. Change its amount instead, or remove the ingredient you wanted to swap.`;
+}
+
 /** Suggestions for the typed ingredient, leaving out foods already in the recipe. */
 export function ingredientOptions(
   text: string,

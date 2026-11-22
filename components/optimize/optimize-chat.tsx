@@ -47,8 +47,10 @@ import {
   NutritionPanel,
   goals,
   alreadyAddedMessage,
+  duplicateSwapMessage,
   ingredientOptions,
   ingredientWithFood,
+  newDuplicate,
   loadDraft,
   makeIngredient,
   saveDraft,
@@ -340,7 +342,15 @@ function OptimizeChatPage() {
         text: "That ingredient has changed since, so I can't apply this one.",
       });
     }
-    commit(change.apply(current), change.command, `Done: ${change.label}.`);
+    const next = change.apply(current);
+    const duplicate = newDuplicate(current, next);
+    if (duplicate) {
+      return push(
+        { role: "user", text: change.command },
+        { role: "assistant", text: duplicateSwapMessage(duplicate) },
+      );
+    }
+    commit(next, change.command, `Done: ${change.label}.`);
   }
 
   async function suggestNutrientSwaps(prompt: string) {
@@ -385,6 +395,8 @@ function OptimizeChatPage() {
       const actions: NutrientSwapAction[] = (result.swaps ?? []).flatMap((swap) => {
         const from = current.find((item) => item.id === swap.ingredientId);
         if (!from) return [];
+        // The server already leaves these out; this covers older servers.
+        if (current.some((item) => item.id !== from.id && item.food.fdc_id === swap.replacement.fdc_id)) return [];
         const label = `${from.name} → ${foodLabel(swap.replacement.description)} (${formatAmount.format(swap.grams)} g)`;
         return [{ type: "nutrientSwap", swap, from, servings, label }];
       });
@@ -535,8 +547,16 @@ function OptimizeChatPage() {
         );
       }
       const factor = rule?.to === target.fdc_id ? rule.factor : undefined;
+      const swapped = swapIngredient(current, hit.id, target, factor);
+      const duplicate = newDuplicate(current, swapped);
+      if (duplicate) {
+        return push(
+          { role: "user", text: t },
+          { role: "assistant", text: duplicateSwapMessage(duplicate) },
+        );
+      }
       return commit(
-        swapIngredient(current, hit.id, target, factor),
+        swapped,
         t,
         `Swapped ${lower(hit.name)} for ${lower(foodLabel(target.description))}.` +
           (rule?.to === target.fdc_id ? `\n${rule.note}` : ""),
@@ -674,9 +694,13 @@ function OptimizeChatPage() {
 
   function runAction(a: Action) {
     if (a.type === "goal") {
+      // Ignore presses while Gemini is still answering the last request.
+      if (pendingSwap.current) return;
       const info = goals.find((g) => g.key === a.goal)!;
       setGoal(a.goal);
-      suggestFor(a.goal, `Make it ${info.phrase}`);
+      // Same path as a typed prompt: Gemini first, and the built-in swaps
+      // if it can't answer or finds nothing.
+      void suggestNutrientSwaps(`Make it ${info.phrase}`);
     } else if (a.type === "change") {
       applyChange(a.change);
     } else {
@@ -687,6 +711,14 @@ function OptimizeChatPage() {
         return;
       }
       const applied = prepareNutrientSwap(a);
+      const duplicate = newDuplicate(current, applied.ingredients);
+      if (duplicate) {
+        push(
+          { role: "user", text: `Apply: ${a.label}` },
+          { role: "assistant", text: duplicateSwapMessage(duplicate) },
+        );
+        return;
+      }
       commit(applied.ingredients, `Apply: ${a.label}`, applied.message);
     }
   }
@@ -820,9 +852,10 @@ function OptimizeChatPage() {
                     key={g.key}
                     type="button"
                     aria-pressed={on}
+                    disabled={checkingSwaps}
                     onClick={() => runAction({ type: "goal", goal: g.key })}
                     className={cn(
-                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors",
+                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors disabled:cursor-wait disabled:opacity-60",
                       on
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-card hover:border-foreground/40",
