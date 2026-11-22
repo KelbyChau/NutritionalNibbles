@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { RecipeDashboard } from "@/components/dashboard/recipe-dashboard";
-import { listRecipes } from "@/lib/recipes/queries";
-import { MAX_PAGE_SIZE } from "@/lib/recipes/validation";
+import { listRecipes, MAX_PAGE_SIZE } from "@/lib/recipes/queries";
 import { createClient } from "@/lib/supabase/server";
 
 // Reads the session cookie, so it has to stream in behind <Suspense>
@@ -14,16 +13,13 @@ async function DashboardData() {
   // No login required. Signed-out visitors see public recipes; signed-in
   // users also see their own private ones (RLS) and can save recipes.
   //
-  // The first page comes from listRecipes(), the same query behind
-  // GET /api/recipes: Next.js recommends Server Components read data directly
-  // instead of calling their own API routes. If there are more recipes, the
-  // dashboard fetches the rest from GET /api/recipes in the browser.
+  // The first page is queried here on the server. If there are more recipes,
+  // the dashboard queries the rest from the browser (useAllRecipes).
   const [firstPage, savedRes] = await Promise.all([
     listRecipes(supabase, userId, {
       scope: "all",
       limit: MAX_PAGE_SIZE,
-      before: null,
-      beforeId: null,
+      cursor: null,
     }),
     userId
       ? supabase.from("saved_recipes").select("recipe_id").eq("user_id", userId)

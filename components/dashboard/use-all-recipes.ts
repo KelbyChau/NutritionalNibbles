@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchRecipePage } from "@/lib/recipes/api-client";
-import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
-import { MAX_PAGE_SIZE } from "@/lib/recipes/validation";
+import {
+  listRecipes,
+  MAX_PAGE_SIZE,
+  type RecipeCursor,
+  type RecipeListItem,
+} from "@/lib/recipes/queries";
+import { createClient } from "@/lib/supabase/client";
 
 /**
- * Starts from the first page the server rendered, then loads every remaining
- * page from GET /api/recipes in the background, so the dashboard's search,
- * filters and sorts cover all recipes, not just the first page.
+ * Starts from the first page the server rendered, then queries Supabase from
+ * the browser for every remaining page, so the dashboard's search, filters and
+ * sorts cover all recipes, not just the first page. Row-level security limits
+ * the results to public recipes plus the signed-in user's own.
  */
 export function useAllRecipes(
   initialRecipes: RecipeListItem[],
@@ -31,19 +36,23 @@ export function useAllRecipes(
   useEffect(() => {
     if (!next) return;
     const controller = new AbortController();
-    fetchRecipePage(next, { limit: MAX_PAGE_SIZE, signal: controller.signal })
-      .then((page) => {
-        if (controller.signal.aborted) return;
-        setRecipes((current) => {
-          const seen = new Set(current.map((r) => r.id));
-          return [...current, ...page.recipes.filter((r) => !seen.has(r.id))];
-        });
-        setNext(page.next); // a new cursor runs this effect again for the next page
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Could not load more recipes");
+    listRecipes(createClient(), null, {
+      scope: "all",
+      limit: MAX_PAGE_SIZE,
+      cursor: next,
+      signal: controller.signal,
+    }).then((page) => {
+      if (controller.signal.aborted) return;
+      if (page.error) {
+        setError(page.error.message || "Could not load more recipes");
+        return;
+      }
+      setRecipes((current) => {
+        const seen = new Set(current.map((r) => r.id));
+        return [...current, ...page.recipes.filter((r) => !seen.has(r.id))];
       });
+      setNext(page.next); // a new cursor runs this effect again for the next page
+    });
     return () => controller.abort();
   }, [next, attempt]);
 
