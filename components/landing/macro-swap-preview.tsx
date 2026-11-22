@@ -42,8 +42,8 @@ export function MacroSwapPreview() {
                 <dt className="font-medium">{label}</dt>
                 <dd className="tabular-nums text-muted-foreground">
                   {before}g → <span className="text-foreground">{after}g</span>{" "}
-                  ({diff > 0 ? "+" : ""}
-                  {diff}g)
+                  ({diff > 0 ? "+" : "−"}
+                  {Math.abs(diff)}g)
                 </dd>
               </div>
               <div className="mt-2 flex flex-col gap-1" aria-hidden>
@@ -65,10 +65,18 @@ export function MacroSwapPreview() {
         })}
       </dl>
 
-      <p className="mt-6 text-xs text-muted-foreground">
-        Illustrative numbers, not calculated. Thin bar: original recipe.
-        Thick bar: after the swap.
-      </p>
+      {/* Legend: the two bar weights, so nobody has to decode them. */}
+      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-2">
+          <span className="h-1.5 w-6 rounded-full bg-foreground/25" aria-hidden />
+          Before
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-6 rounded-full bg-foreground/70" aria-hidden />
+          After the swap
+        </span>
+        <span className="ml-auto">Example numbers, per serving</span>
+      </div>
     </figure>
   );
 }
