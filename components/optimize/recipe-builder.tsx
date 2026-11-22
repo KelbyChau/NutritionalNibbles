@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { parseIngredient } from "@/lib/ingredients";
 import { calculateNutrition } from "@/lib/nutrition";
+import { createClient } from "@/lib/supabase/client";
 import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
 import {
@@ -73,15 +74,74 @@ export function RecipeBuilder() {
   const nextId = useRef(1);
   const { foods, status: catalogStatus, retry } = useFoundationFoods();
 
+  // Opened from the dashboard (/optimize?recipe=<id>): load that recipe once
+  // the USDA catalog is ready, since ingredients are stored by fdc_id.
+  // undefined until the URL has been read on the client.
+  const [recipeId, setRecipeId] = useState<string | null | undefined>();
+  const [recipeStatus, setRecipeStatus] = useState("");
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("recipe");
+    setRecipeId(id);
+    if (id) setRecipeStatus("Loading recipe…");
+  }, []);
+  useEffect(() => {
+    if (!recipeId || !foods.length) return;
+    let current = true;
+    async function load() {
+      const { data, error } = await createClient()
+        .from("recipes")
+        .select("title, servings, ingredients")
+        .eq("id", recipeId!)
+        .maybeSingle();
+      if (!current) return;
+      if (error || !data) {
+        setRecipeStatus("Couldn’t load that recipe.");
+        return;
+      }
+      const byId = new Map(foods.map((f) => [f.fdc_id, f]));
+      const items = Array.isArray(data.ingredients) ? data.ingredients : [];
+      const list: Ingredient[] = [];
+      let id = 1;
+      for (const item of items as {
+        fdc_id?: number;
+        amount?: number | string;
+        unit?: string;
+      }[]) {
+        const food = item.fdc_id ? byId.get(Number(item.fdc_id)) : undefined;
+        if (!food) continue;
+        list.push(
+          makeIngredient(
+            food,
+            {
+              amount: item.amount == null ? "" : String(Number(item.amount)),
+              unit: item.unit ?? "g",
+            },
+            id++,
+          ),
+        );
+      }
+      setTitle(data.title ?? "");
+      setServings(Math.max(1, Number(data.servings) || 1));
+      setIngredients(list);
+      nextId.current = id;
+      setRecipeStatus("");
+    }
+    void load();
+    return () => {
+      current = false;
+    };
+  }, [recipeId, foods]);
+
   // Coming back from the chat page: pick up the recipe where it was left.
   useEffect(() => {
+    if (recipeId !== null) return;
     const draft = loadDraft();
     if (!draft) return;
     setTitle(draft.title);
     setServings(draft.servings);
     setIngredients(draft.current);
     nextId.current = Math.max(0, ...draft.current.map((i) => i.id)) + 1;
-  }, []);
+  }, [recipeId]);
 
   const realNutrition = useMemo(
     () => calculateNutrition(ingredients, servings),
@@ -132,7 +192,7 @@ export function RecipeBuilder() {
           N
         </Link>
         <h1 className="mr-auto font-display text-3xl leading-none tracking-tight sm:text-4xl">
-          New Recipe
+          {recipeId ? "Edit Recipe" : "New Recipe"}
         </h1>
         <Link
           href="/dashboard"
@@ -242,6 +302,11 @@ export function RecipeBuilder() {
                   Retry
                 </button>
               )}
+            </p>
+          )}
+          {recipeStatus && (
+            <p role="status" className="mt-2 text-sm">
+              {recipeStatus}
             </p>
           )}
           <p className="mb-3 mt-4 text-sm text-muted-foreground">

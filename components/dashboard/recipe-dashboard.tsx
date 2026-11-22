@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -91,9 +92,10 @@ export function RecipeDashboard({
   const [diet, setDiet] = useState(ANY);
   const [sort, setSort] = useState<Sort>("newest");
   const [saved, setSaved] = useState(() => new Set(savedIds));
-  const [selectedId, setSelectedId] = useState<string | null>(
-    recipes[0]?.id ?? null,
-  );
+  // Nothing is selected until a card is clicked; the big view falls back to
+  // the first recipe but no card is outlined.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const router = useRouter();
 
   const cuisines = useMemo(
     () => unique(recipes.map((r) => r.cuisine)),
@@ -359,12 +361,12 @@ export function RecipeDashboard({
               <li key={recipe.id}>
                 <RecipeCard
                   recipe={recipe}
-                  active={recipe.id === featured?.id}
+                  active={recipe.id === selectedId}
                   saved={saved.has(recipe.id)}
                   onSelect={() => {
                     setSelectedId(recipe.id);
-                    if (window.innerWidth < 1024)
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    // Open it in the recipe builder with its ingredients.
+                    router.push(`/optimize?recipe=${recipe.id}`);
                   }}
                   onToggleSave={
                     canSave ? () => toggleSave(recipe.id) : undefined
@@ -455,35 +457,33 @@ function FeaturedRecipe({
     { icon: Clock, value: `${totalMinutes(recipe)} min`, label: "Time" },
   ];
 
+  // Plate grows with the recipe: a 3-ingredient dish gets a small plate,
+  // a 12+ ingredient one is full size.
+  const count = Math.max(0, recipe.ingredient_count);
+  const blobScale = Math.min(1, 0.55 + count * 0.04);
+
+  // Long names get a smaller font so they wrap instead of running off.
+  const len = recipe.title.length;
+  const titleSize =
+    len > 48
+      ? "text-2xl sm:text-3xl"
+      : len > 28
+        ? "text-3xl sm:text-4xl"
+        : "text-4xl sm:text-5xl";
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative flex min-h-[18rem] flex-1 items-center justify-center py-8">
-        {/* Butter blob, same shape as the landing hero */}
-        <div
-          aria-hidden
-          className={cn(
-            "absolute inset-x-[8%] inset-y-[6%] rounded-[58%_42%_47%_53%/45%_52%_48%_55%]",
-            BUTTER,
-          )}
-        />
-        {recipe.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- recipe images can come from any host
-          <img
-            src={recipe.image_url}
-            alt={recipe.title}
-            className="relative aspect-square max-h-[min(26rem,100%)] w-auto max-w-[70%] rounded-full object-cover shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]"
-          />
-        ) : (
-          <div className="relative flex aspect-square w-48 items-center justify-center rounded-full bg-card shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)] sm:w-64">
-            <UtensilsCrossed className="size-16 text-primary" />
-          </div>
-        )}
-
-        <div className="absolute left-0 top-4 max-w-[60%] sm:top-6">
+      <div className="flex items-start justify-between gap-4 pt-4 sm:pt-6">
+        <div className="min-w-0">
           {recipe.cuisine && (
             <p className="text-sm text-muted-foreground">{recipe.cuisine}</p>
           )}
-          <h2 className="font-display text-4xl leading-[0.95] tracking-tight sm:text-5xl">
+          <h2
+            className={cn(
+              "font-display leading-[0.95] tracking-tight [overflow-wrap:anywhere] [text-wrap:balance]",
+              titleSize,
+            )}
+          >
             {recipe.title}
           </h2>
         </div>
@@ -493,12 +493,31 @@ function FeaturedRecipe({
             onClick={onToggleSave}
             aria-pressed={saved}
             aria-label={saved ? "Remove from saved" : "Save recipe"}
-            className="absolute right-0 top-4 flex size-11 items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-foreground/40 sm:top-6"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-foreground/40"
           >
             <Heart
               className={cn("size-5", saved && "fill-macro-fat text-macro-fat")}
             />
           </button>
+        )}
+      </div>
+
+      <div className="relative flex min-h-[16rem] flex-1 items-center justify-center py-6">
+        {recipe.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- recipe images can come from any host
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            style={{ maxWidth: `${blobScale * 60}%` }}
+            className="relative aspect-square max-h-[min(24rem,80%)] w-auto rounded-full object-cover shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]"
+          />
+        ) : (
+          <div
+            style={{ width: `clamp(8rem, ${blobScale * 34}%, 16rem)` }}
+            className="relative flex aspect-square items-center justify-center rounded-full bg-card shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]"
+          >
+            <UtensilsCrossed className="size-1/4 text-primary" />
+          </div>
         )}
       </div>
 
@@ -547,10 +566,25 @@ function RecipeCard({
   onToggleSave?: () => void;
 }) {
   return (
+    // The whole card is the control: click, Enter or Space selects it.
     <article
+      role="button"
+      tabIndex={0}
+      aria-pressed={active}
+      aria-label={`Open ${recipe.title} in the recipe builder`}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
-        "relative flex h-48 overflow-hidden rounded-3xl border bg-card transition-colors",
-        active ? "border-primary ring-1 ring-primary" : "border-border",
+        "relative flex h-48 cursor-pointer overflow-hidden rounded-3xl border bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        active
+          ? "border-primary ring-1 ring-primary"
+          : "border-border hover:border-primary hover:ring-1 hover:ring-primary",
       )}
     >
       <div className="relative z-10 flex min-w-0 flex-1 flex-col p-5">
@@ -559,22 +593,18 @@ function RecipeCard({
         </h3>
         <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
           <Clock className="size-3.5" />
-          {totalMinutes(recipe)} minutes
+          <span className="whitespace-nowrap">
+            {totalMinutes(recipe)} minutes
+          </span>
           {recipe.protein_g_per_serving !== null && (
             <>
               <span aria-hidden>·</span>
-              {Math.round(recipe.protein_g_per_serving)}g protein
+              <span className="whitespace-nowrap">
+                {Math.round(recipe.protein_g_per_serving)}g protein
+              </span>
             </>
           )}
         </p>
-        <button
-          type="button"
-          onClick={onSelect}
-          className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-xs font-medium transition-colors hover:bg-primary hover:text-primary-foreground"
-        >
-          See recipe
-          <ArrowRight className="size-3.5" />
-        </button>
       </div>
 
       <div className="relative w-[42%] shrink-0">
@@ -600,7 +630,10 @@ function RecipeCard({
       {onToggleSave && (
         <button
           type="button"
-          onClick={onToggleSave}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSave();
+          }}
           aria-pressed={saved}
           aria-label={
             saved ? `Remove ${recipe.title} from saved` : `Save ${recipe.title}`
