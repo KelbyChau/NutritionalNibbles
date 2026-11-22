@@ -6,13 +6,13 @@ import { useEffect, useState } from "react";
 import { lookupIngredient, parseIngredient } from "@/lib/ingredients";
 import { createClient } from "@/lib/supabase/client";
 import { loadUsdaCatalog } from "@/lib/usda-catalog";
-import { foodLabel, foodSuggestions, type FoundationFood } from "@/lib/foundation-foods";
+import { foodLabel, foodSuggestions, type UsdaFood } from "@/lib/foundation-foods";
 import type { Ingredient } from "./shared";
 
 // Every USDA food the app can use (both catalogs), loaded once per tab;
 // see lib/usda-catalog.ts.
 export function useUsdaFoods() {
-  const [foods, setFoods] = useState<FoundationFood[]>([]);
+  const [foods, setFoods] = useState<UsdaFood[]>([]);
   const [status, setStatus] = useState("Loading USDA ingredients…");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -39,7 +39,7 @@ export function useUsdaFoods() {
 }
 
 export function makeIngredient(
-  food: FoundationFood,
+  food: UsdaFood,
   parsed: { amount: string; unit: string },
   id: number,
 ): Ingredient {
@@ -54,7 +54,7 @@ export function makeIngredient(
 }
 
 /** The recipe's ingredient with this food, if it's already in the recipe. */
-export function ingredientWithFood(ingredients: Ingredient[], food: FoundationFood) {
+export function ingredientWithFood(ingredients: Ingredient[], food: UsdaFood) {
   return ingredients.find((i) => i.food.fdc_id === food.fdc_id);
 }
 
@@ -66,7 +66,7 @@ export function alreadyAddedMessage(ingredient: Ingredient) {
 /** Suggestions for the typed ingredient, leaving out foods already in the recipe. */
 export function ingredientOptions(
   text: string,
-  foods: FoundationFood[],
+  foods: UsdaFood[],
   inRecipe: Ingredient[] = [],
 ) {
   const parsed = parseIngredient(text);

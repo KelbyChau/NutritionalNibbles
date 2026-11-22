@@ -1,7 +1,7 @@
 // Suggestions shown under the chat box as the user types.
 
 import { Minus, Plus, RotateCcw, Undo2, UtensilsCrossed, WandSparkles, X } from "lucide-react";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import type { UsdaFood } from "@/lib/foundation-foods";
 import { findSwapRule } from "../changes";
 import { goals, type Ingredient } from "../shared";
 import { ingredientOptions } from "../ingredients";
@@ -11,7 +11,7 @@ import type { Suggestion } from "./types";
 export function chatSuggestions(
   raw: string,
   ingredients: Ingredient[],
-  foods: FoundationFood[],
+  foods: UsdaFood[],
 ): Suggestion[] {
   const q = raw.trim();
   if (!q) return [];

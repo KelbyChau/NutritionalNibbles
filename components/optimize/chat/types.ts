@@ -1,7 +1,7 @@
 // Shared types for the optimizer chat.
 
 import type { LucideIcon } from "lucide-react";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import type { UsdaFood } from "@/lib/foundation-foods";
 import type { VerifiedSwap } from "@/lib/optimizer/nutrient-swaps";
 import type { Change } from "../changes";
 import type { GoalKey, Ingredient } from "../shared";
@@ -23,5 +23,5 @@ export type Suggestion = {
   text: string;
   icon: LucideIcon;
   iconClass?: string;
-  food?: FoundationFood;
+  food?: UsdaFood;
 };

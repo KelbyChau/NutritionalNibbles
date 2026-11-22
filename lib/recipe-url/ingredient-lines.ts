@@ -4,7 +4,7 @@
 // so this aims to be right most of the time and to say when it's unsure.
 
 import { parseAmount } from "../amount.ts";
-import type { FoundationFood } from "../foundation-foods";
+import type { UsdaFood } from "../foundation-foods";
 
 export type ParsedLine = {
   raw: string; // the line exactly as the website wrote it
@@ -15,7 +15,7 @@ export type ParsedLine = {
 };
 
 export type FoodMatch = {
-  food: FoundationFood | null;
+  food: UsdaFood | null;
   // sure: every word of the ingredient matched the USDA name.
   // check: close but not exact ("sharp cheddar" → "Cheese, cheddar").
   // none: nothing in the catalog looked right.
@@ -270,10 +270,10 @@ function words(text: string): string[] {
     .filter((w) => !stopwords.has(w));
 }
 
-type Indexed = { food: FoundationFood; tokens: Set<string>; main: Set<string>; head: string[]; order: number };
-const indexCache = new WeakMap<FoundationFood[], { items: Indexed[]; vocab: Set<string> }>();
+type Indexed = { food: UsdaFood; tokens: Set<string>; main: Set<string>; head: string[]; order: number };
+const indexCache = new WeakMap<UsdaFood[], { items: Indexed[]; vocab: Set<string> }>();
 
-function indexFoods(foods: FoundationFood[]) {
+function indexFoods(foods: UsdaFood[]) {
   let cached = indexCache.get(foods);
   if (!cached) {
     const items = foods.map((food, order) => ({
@@ -290,7 +290,7 @@ function indexFoods(foods: FoundationFood[]) {
   return cached;
 }
 
-export function matchFood(name: string, foods: FoundationFood[]): FoodMatch {
+export function matchFood(name: string, foods: UsdaFood[]): FoodMatch {
   const { items, vocab } = indexFoods(foods);
   const all = words(name);
   const cuts = all.filter((w) => Object.hasOwn(oppositeCut, w));
@@ -346,16 +346,16 @@ export function matchFood(name: string, foods: FoundationFood[]): FoodMatch {
 // A food appears once in a recipe (the builder's search won't add it twice),
 // so lines that matched the same USDA food become one ingredient: "2 tbsp
 // butter" + "1 tbsp butter" → 3 tbsp. Different units are added up in grams.
-type Line = { food: FoundationFood | null; amount: string; unit: string };
+type Line = { food: UsdaFood | null; amount: string; unit: string };
 
 // `weigh` returns a line's weight in grams, or null when its unit can't be
 // converted (calculateNutrition does this; passed in to keep this file free
 // of the nutrition tables).
 export function combineDuplicates(
   rows: Line[],
-  weigh: (line: { food: FoundationFood; amount: string; unit: string }) => number | null,
+  weigh: (line: { food: UsdaFood; amount: string; unit: string }) => number | null,
 ) {
-  const ingredients: { food: FoundationFood; amount: string; unit: string }[] = [];
+  const ingredients: { food: UsdaFood; amount: string; unit: string }[] = [];
   let combined = 0;
   for (const { food, amount, unit } of rows) {
     if (!food) continue;

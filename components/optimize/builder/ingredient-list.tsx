@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { parseIngredient } from "@/lib/ingredients";
-import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
+import { exactFood, type UsdaFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
 import { BUTTER, IngredientArt, type Ingredient } from "../shared";
 import { Combobox } from "../combobox";
@@ -84,10 +84,10 @@ export function AddIngredient({
   ingredients,
   onAdd,
 }: {
-  foods: FoundationFood[];
+  foods: UsdaFood[];
   ingredients: Ingredient[];
   onAdd: (
-    food: FoundationFood,
+    food: UsdaFood,
     parsed: { amount: string; unit: string },
   ) => void;
 }) {
@@ -95,7 +95,7 @@ export function AddIngredient({
   const [error, setError] = useState("");
   // Foods already in the recipe aren't suggested.
   const options = ingredientOptions(value, foods, ingredients);
-  function submit(text: string, option?: { food: FoundationFood }) {
+  function submit(text: string, option?: { food: UsdaFood }) {
     const parsed = parseIngredient(text);
     const food = option?.food ?? (parsed && exactFood(foods, parsed.name));
     if (!parsed || !food) {

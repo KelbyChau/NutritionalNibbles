@@ -1,4 +1,4 @@
-import type { FoundationFood } from "./foundation-foods";
+import type { UsdaFood } from "./foundation-foods";
 import usdaPortions from "./usda-volume-portions.json" with { type: "json" };
 import { parseAmount } from "./amount.ts";
 
@@ -405,7 +405,7 @@ function toGrams(qty: number, unit: string, food?: Food, portion?: VolumePortion
 }
 
 export function calculateNutrition(
-  ingredients: { name: string; amount: string; unit: string; food?: FoundationFood }[],
+  ingredients: { name: string; amount: string; unit: string; food?: UsdaFood }[],
   servings: number,
 ): RecipeNutrition {
   const items: IngredientNutrition[] = ingredients.map((ing) => {

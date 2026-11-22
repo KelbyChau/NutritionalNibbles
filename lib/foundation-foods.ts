@@ -1,4 +1,4 @@
-export type FoundationFood = {
+export type UsdaFood = {
   fdc_id: number;
   description: string;
   kcal_per_100g: number | null;
@@ -85,13 +85,13 @@ const words = (name: string) => name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 
 /** `exclude` holds fdc_ids to leave out, such as foods already in the recipe. */
 export function foodSuggestions(
-  foods: FoundationFood[],
+  foods: UsdaFood[],
   query: string,
   exclude?: ReadonlySet<number>,
 ) {
   const terms = words(query);
   if (!terms.length) return [];
-  const matches: { food: FoundationFood; rank: number[] }[] = [];
+  const matches: { food: UsdaFood; rank: number[] }[] = [];
   for (const food of foods) {
     if (exclude?.has(food.fdc_id)) continue;
     const tokens = words(food.description);
@@ -117,7 +117,7 @@ export function foodSuggestions(
   }).slice(0, 6).map(m => m.food);
 }
 
-export function exactFood(foods: FoundationFood[], name: string) {
+export function exactFood(foods: UsdaFood[], name: string) {
   const normalized = name.trim().toLowerCase();
   const matches = foods.filter(food => food.description.toLowerCase() === normalized ||
     foodLabel(food.description).toLowerCase() === normalized);

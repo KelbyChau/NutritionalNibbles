@@ -6,7 +6,7 @@
 // the recipe builder and the optimizer chat instead of once per page.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FoundationFood } from "./foundation-foods";
+import type { UsdaFood } from "./foundation-foods";
 
 const PAGE = 1000; // Supabase returns at most 1,000 rows per request
 
@@ -14,9 +14,9 @@ const PAGE = 1000; // Supabase returns at most 1,000 rows per request
 export const USDA_FOOD_COLUMNS =
   "fdc_id, description, kcal_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, total_sugars_g_per_100g, sodium_mg_per_100g";
 
-let catalog: Promise<FoundationFood[]> | null = null;
+let catalog: Promise<UsdaFood[]> | null = null;
 
-export function loadUsdaCatalog(supabase: SupabaseClient): Promise<FoundationFood[]> {
+export function loadUsdaCatalog(supabase: SupabaseClient): Promise<UsdaFood[]> {
   catalog ??= fetchCatalog(supabase).catch((error: unknown) => {
     catalog = null; // a failed load is retried, not cached
     throw error;
@@ -29,7 +29,7 @@ export function resetUsdaCatalog() {
   catalog = null;
 }
 
-async function fetchCatalog(supabase: SupabaseClient): Promise<FoundationFood[]> {
+async function fetchCatalog(supabase: SupabaseClient): Promise<UsdaFood[]> {
   const [foundation, legacyCount] = await Promise.all([
     supabase.from("foundation_foods").select(USDA_FOOD_COLUMNS).order("fdc_id"),
     supabase.from("sr_legacy_foods").select("fdc_id", { count: "exact", head: true }),
@@ -47,9 +47,9 @@ async function fetchCatalog(supabase: SupabaseClient): Promise<FoundationFood[]>
   );
   if (pages.some((page) => page.error)) throw new Error("Catalog unavailable");
   return [
-    ...(foundation.data as FoundationFood[]).map((f) => ({ ...f, source: "foundation" as const })),
+    ...(foundation.data as UsdaFood[]).map((f) => ({ ...f, source: "foundation" as const })),
     ...pages
-      .flatMap((page) => (page.data ?? []) as FoundationFood[])
+      .flatMap((page) => (page.data ?? []) as UsdaFood[])
       .map((f) => ({ ...f, source: "sr_legacy" as const })),
   ];
 }

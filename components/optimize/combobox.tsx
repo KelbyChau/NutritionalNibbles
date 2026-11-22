@@ -4,12 +4,12 @@
 
 import { useEffect, useId, useState } from "react";
 import { ArrowUp, type LucideIcon } from "lucide-react";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import type { UsdaFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
 import { SHADOW } from "./shared";
 
 export function Combobox<
-  T extends { text: string; icon?: LucideIcon; food?: FoundationFood },
+  T extends { text: string; icon?: LucideIcon; food?: UsdaFood },
 >({
   value,
   onChange,

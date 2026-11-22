@@ -7,7 +7,7 @@
 // Providers, or enable_anonymous_sign_ins in supabase/config.toml).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import type { UsdaFood } from "@/lib/foundation-foods";
 import { calculateNutrition } from "@/lib/nutrition";
 import { createClient } from "@/lib/supabase/client";
 
@@ -32,7 +32,7 @@ export async function saveMyRecipe(input: {
     name: string;
     amount: string;
     unit: string;
-    food: FoundationFood;
+    food: UsdaFood;
   }[];
 }): Promise<string> {
   const { items } = calculateNutrition(input.ingredients, input.servings);

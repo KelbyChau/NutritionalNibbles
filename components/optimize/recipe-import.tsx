@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { foodLabel, foodSuggestions, type FoundationFood } from "@/lib/foundation-foods";
+import { foodLabel, foodSuggestions, type UsdaFood } from "@/lib/foundation-foods";
 import { lookupIngredient } from "@/lib/ingredients";
 import { calculateNutrition } from "@/lib/nutrition";
 import { combineDuplicates, matchFood, parseLine, type FoodMatch } from "@/lib/recipe-url/ingredient-lines";
@@ -31,14 +31,14 @@ import { IngredientArt } from "./shared";
 export type ImportedRecipe = {
   title: string;
   servings: number;
-  ingredients: { food: FoundationFood; amount: string; unit: string }[];
+  ingredients: { food: UsdaFood; amount: string; unit: string }[];
 };
 
 type Row = {
   key: number;
   raw: string;
   include: boolean;
-  food: FoundationFood | null;
+  food: UsdaFood | null;
   confidence: FoodMatch["confidence"] | "picked";
   matchNote?: string;
   amount: string;
@@ -51,7 +51,7 @@ const UNITS = ["g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "pinch", 
 const field =
   "h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary";
 
-function buildRows(recipe: ScrapedRecipe, foods: FoundationFood[]): Row[] {
+function buildRows(recipe: ScrapedRecipe, foods: UsdaFood[]): Row[] {
   return recipe.ingredients.map((raw, key) => {
     const line = parseLine(raw);
     const match = matchFood(line.name, foods);
@@ -77,7 +77,7 @@ export function RecipeImport({
   replacing,
   onImport,
 }: {
-  foods: FoundationFood[];
+  foods: UsdaFood[];
   catalogStatus: string; // "" once the USDA catalog has loaded
   replacing: number; // ingredients already in the builder
   onImport: (recipe: ImportedRecipe) => void;
@@ -371,7 +371,7 @@ function ReviewRow({
   onChange,
 }: {
   row: Row;
-  foods: FoundationFood[];
+  foods: UsdaFood[];
   servings: number;
   onChange: (change: Partial<Row>) => void;
 }) {

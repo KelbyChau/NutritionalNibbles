@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import type { UsdaFood } from "@/lib/foundation-foods";
 import { calculateNutrition } from "@/lib/nutrition";
 import { GeminiTimeoutError, generateRows } from "@/lib/optimizer/gemini";
 import {
@@ -72,7 +72,7 @@ function readRequest(value: unknown) {
 }
 
 // Per-100 g values of the requested nutrients, labelled for Gemini.
-function per100g(food: FoundationFood, goals: Goal[]) {
+function per100g(food: UsdaFood, goals: Goal[]) {
   return Object.fromEntries(goals.map(({ target }) => [nutrients[target].label, amountOf(food[nutrients[target].column])]));
 }
 
@@ -99,7 +99,7 @@ async function findOriginalFoods(db: SupabaseClient, ids: number[], signal: Abor
 // checked that the original has a value for each.
 async function findReplacements(
   db: SupabaseClient,
-  original: FoundationFood,
+  original: UsdaFood,
   terms: string[],
   goals: Goal[],
   signal: AbortSignal,

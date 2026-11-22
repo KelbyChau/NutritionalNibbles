@@ -12,7 +12,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { calculateNutrition } from "@/lib/nutrition";
 import { saveMyRecipe } from "@/lib/my-recipes";
 import { createClient } from "@/lib/supabase/client";
-import { type FoundationFood } from "@/lib/foundation-foods";
+import { type UsdaFood } from "@/lib/foundation-foods";
 
 import { Stat, AnimatedNumber, fmtCount, type Ingredient } from "./shared";
 
@@ -153,7 +153,7 @@ function RecipeBuilderPage() {
   const nutrition = isSample ? sampleNutrition : realNutrition;
 
   function addFood(
-    food: FoundationFood,
+    food: UsdaFood,
     parsed: { amount: string; unit: string },
   ) {
     setIngredients((list) =>

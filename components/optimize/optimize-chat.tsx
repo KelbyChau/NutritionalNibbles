@@ -15,7 +15,7 @@ import {
   exactFood,
   foodLabel,
   foodSuggestions,
-  type FoundationFood,
+  type UsdaFood,
 } from "@/lib/foundation-foods";
 import { parseIngredient } from "@/lib/ingredients";
 import {
@@ -406,7 +406,7 @@ function OptimizeChatPage() {
         const hit = findIngredient(current, command.target);
         if (!hit) return notFound(command.target);
         const rule = findSwapRule(hit.food.fdc_id);
-        let target: FoundationFood | undefined;
+        let target: UsdaFood | undefined;
         if (command.lighter) {
           target = rule && foods.find((f) => f.fdc_id === rule.to);
           if (!target) {
@@ -769,7 +769,7 @@ function OptimizeChatPage() {
 
 // ---- Helpers -----------------------------------------------------------------
 
-function refreshDraftFoods(ingredients: Ingredient[], byId: Map<number, FoundationFood>) {
+function refreshDraftFoods(ingredients: Ingredient[], byId: Map<number, UsdaFood>) {
   return byId.size ? ingredients.map((ingredient) => {
     const food = byId.get(ingredient.food.fdc_id);
     return food ? { ...ingredient, food } : ingredient;

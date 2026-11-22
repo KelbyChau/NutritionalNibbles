@@ -9,7 +9,7 @@ import {
   parseAmount,
   type Nutrients,
 } from "@/lib/nutrition";
-import { foodName, type FoundationFood } from "@/lib/foundation-foods";
+import { foodName, type UsdaFood } from "@/lib/foundation-foods";
 import { makeIngredient } from "./ingredients";
 import { type GoalKey, type Ingredient } from "./shared";
 
@@ -138,7 +138,7 @@ const shortNames: Record<number, string> = {
   2346403: "Gold potatoes",
 };
 
-export function shortName(food: FoundationFood) {
+export function shortName(food: UsdaFood) {
   return shortNames[food.fdc_id] ?? foodName(food.description);
 }
 
@@ -170,7 +170,7 @@ export function scaleAmount(amount: string, factor: number) {
 export function swapIngredient(
   list: Ingredient[],
   id: number,
-  to: FoundationFood,
+  to: UsdaFood,
   factor = 1,
 ): Ingredient[] {
   return list.map((i) =>
@@ -205,7 +205,7 @@ export function suggestChanges(
   goal: GoalKey,
   ingredients: Ingredient[],
   servings: number,
-  foods: FoundationFood[],
+  foods: UsdaFood[],
 ): Change[] {
   const metric = goalMetric[goal];
   const base = calculateNutrition(ingredients, servings);

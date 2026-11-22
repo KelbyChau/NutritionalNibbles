@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ingredientImage, type IngredientInfo } from "@/lib/ingredients";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import type { UsdaFood } from "@/lib/foundation-foods";
 import { cn } from "@/lib/utils";
 
 export type GoalKey = "protein" | "calories" | "carbs" | "fat";
@@ -67,7 +67,7 @@ export const goals: {
 ];
 
 export type Ingredient = IngredientInfo & {
-  food: FoundationFood;
+  food: UsdaFood;
   id: number;
   amount: string;
   unit: string;

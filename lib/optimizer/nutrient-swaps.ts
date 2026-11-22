@@ -4,7 +4,7 @@
 // how much of the replacement to use. Every number comes from the USDA
 // catalogs, and every swap is re-checked here before the chat shows it.
 // Pure functions (type-only imports), so they can run anywhere.
-import type { FoundationFood } from "../foundation-foods";
+import type { UsdaFood } from "../foundation-foods";
 
 // minChange: smallest per-serving change worth showing (smaller rounds to 0).
 // floor: per-serving amount used for scoring when the recipe has very little.
@@ -45,7 +45,7 @@ const GOAL_TOLERANCE = 0.02;
 
 export type VerifiedSwap = {
   ingredientId: number;
-  replacement: FoundationFood;
+  replacement: UsdaFood;
   originalGrams: number;
   /** Replacement amount in grams. */
   grams: number;
@@ -159,7 +159,7 @@ export function amountOf(value: unknown): number | null {
  * Whether swapping this food could help: every goal has data, and at least
  * one can move (anything can go up; only a value above 0 can go down).
  */
-export function canImprove(food: FoundationFood, goals: Goal[]) {
+export function canImprove(food: UsdaFood, goals: Goal[]) {
   const values = goals.map((g) => amountOf(food[nutrients[g.target].column]));
   return goals.length > 0 && values.every((v) => v !== null) &&
     goals.some((g, i) => g.direction === "higher" || values[i]! > 0);
@@ -176,9 +176,9 @@ export function canImprove(food: FoundationFood, goals: Goal[]) {
  */
 export function evaluateSwap(input: {
   ingredientId: number;
-  original: FoundationFood;
+  original: UsdaFood;
   originalGrams: number;
-  replacement: FoundationFood;
+  replacement: UsdaFood;
   grams: number;
   basis: SwapBasis;
   servings: number;
@@ -287,7 +287,7 @@ export function interleaveByIngredient(candidates: VerifiedSwap[], limit: number
 
 export type SwapContext = {
   /** The original food and its grams, by ingredient id. */
-  originals: Map<number, { food: FoundationFood; grams: number }>;
+  originals: Map<number, { food: UsdaFood; grams: number }>;
   servings: number;
   goals: Goal[];
   recipe: RecipeAmounts;
