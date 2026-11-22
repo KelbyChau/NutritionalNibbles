@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
+  ChefHat,
   ChevronDown,
   Clock,
   Dumbbell,
@@ -29,32 +30,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { useAllRecipes } from "@/components/dashboard/use-all-recipes";
+import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-export type DashboardRecipe = {
-  id: string;
-  title: string;
-  description: string | null;
-  image_url: string | null;
-  cuisine: string | null;
-  dietary_tags: string[];
-  prep_minutes: number;
-  cook_minutes: number;
-  servings: number;
-  ingredient_count: number;
-  calories_per_serving: number | null;
-  protein_g_per_serving: number | null;
-  carbohydrates_g_per_serving: number | null;
-  fat_g_per_serving: number | null;
-  created_at: string;
-};
+// Same shape listRecipes() returns for each recipe.
+export type DashboardRecipe = RecipeListItem;
 
-type Category = "all" | "saved" | "quick" | "protein" | "light";
+type Category = "all" | "mine" | "saved" | "quick" | "protein" | "light";
 type Sort = "newest" | "quickest" | "protein" | "calories";
 
 const categories: { key: Category; label: string; icon: LucideIcon }[] = [
   { key: "all", label: "Recipes", icon: UtensilsCrossed },
+  { key: "mine", label: "Yours", icon: ChefHat },
   { key: "saved", label: "Saved", icon: Heart },
   { key: "quick", label: "Quick", icon: Timer },
   { key: "protein", label: "Protein", icon: Dumbbell },
@@ -76,18 +65,26 @@ const BUTTER = "bg-[hsl(45_84%_72%)]";
 const totalMinutes = (r: DashboardRecipe) => r.prep_minutes + r.cook_minutes;
 
 export function RecipeDashboard({
-  recipes,
+  initialRecipes,
+  nextCursor,
   savedIds,
   userId,
   userEmail,
   loadError,
 }: {
-  recipes: DashboardRecipe[];
+  /** First page, rendered on the server. */
+  initialRecipes: DashboardRecipe[];
+  /** Where the remaining pages start, or null if the first page is everything. */
+  nextCursor: RecipeCursor | null;
   savedIds: string[];
   userId: string | null;
   userEmail: string | null;
   loadError: string | null;
 }) {
+  const { recipes, loadingMore, loadMoreError, retry } = useAllRecipes(
+    initialRecipes,
+    nextCursor,
+  );
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category>("all");
   const [cuisine, setCuisine] = useState(ANY);
@@ -120,6 +117,8 @@ export function RecipeDashboard({
       if (cuisine !== ANY && r.cuisine !== cuisine) return false;
       if (diet !== ANY && !r.dietary_tags.includes(diet)) return false;
       switch (category) {
+        case "mine":
+          return r.owner_id !== null && r.owner_id === userId;
         case "saved":
           return saved.has(r.id);
         case "quick":
@@ -154,7 +153,7 @@ export function RecipeDashboard({
           return b.created_at.localeCompare(a.created_at);
       }
     });
-  }, [recipes, query, category, cuisine, diet, sort, saved]);
+  }, [recipes, query, category, cuisine, diet, sort, saved, userId]);
 
   const featured =
     visible.find((r) => r.id === selectedId) ?? visible[0] ?? null;
@@ -234,7 +233,8 @@ export function RecipeDashboard({
           className="flex shrink-0 gap-2 overflow-x-auto lg:w-20 lg:flex-col lg:items-center lg:gap-5 lg:overflow-visible lg:pt-20"
         >
           {categories
-            .filter(({ key }) => canSave || key !== "saved")
+            // "Yours" and "Saved" only make sense when signed in.
+            .filter(({ key }) => canSave || (key !== "saved" && key !== "mine"))
             .map(({ key, label, icon: Icon }) => {
               const active = category === key;
               return (
@@ -336,8 +336,23 @@ export function RecipeDashboard({
           aria-label="All recipes"
           className="flex min-h-0 shrink-0 flex-col lg:w-[22rem] xl:w-[24rem]"
         >
-          <p className="mb-3 text-sm text-muted-foreground">
-            {visible.length} {visible.length === 1 ? "recipe" : "recipes"}
+          <p className="mb-3 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+            <span>
+              {visible.length} {visible.length === 1 ? "recipe" : "recipes"}
+            </span>
+            {loadingMore && <span aria-live="polite">· Loading more…</span>}
+            {loadMoreError && (
+              <span role="alert">
+                · Couldn&apos;t load all recipes.{" "}
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  Retry
+                </button>
+              </span>
+            )}
           </p>
           <ul className="flex min-h-0 flex-1 flex-col gap-4 lg:overflow-y-auto lg:pb-2 lg:pr-1">
             {visible.map((recipe) => (
