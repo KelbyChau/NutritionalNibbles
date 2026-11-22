@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MacroSwapPreview } from "./macro-swap-preview";
 
@@ -19,7 +19,7 @@ export function Hero() {
         <p className="mt-6 max-w-[34ch] font-display text-2xl leading-snug text-muted-foreground sm:text-3xl">
           Practical swaps for more protein or fewer calories, carbs or fat.
         </p>
-        <div className="mt-10 flex flex-wrap items-center gap-6">
+        <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-3">
           <Button
             asChild
             size="lg"
@@ -28,6 +28,17 @@ export function Hero() {
             <Link href="/optimize">
               Optimize a recipe
               <ArrowRight />
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="h-14 rounded-full px-5 text-base shadow-none"
+          >
+            <Link href="/dashboard">
+              <LayoutGrid aria-hidden="true" />
+              Dashboard
             </Link>
           </Button>
           <Link
