@@ -50,7 +50,7 @@ export function SaveButton({
         onClick={save}
         disabled={disabled || state === "saving"}
         aria-describedby={error ? "save-error" : undefined}
-        className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground"
+        className="inline-flex h-11 items-center gap-2 rounded-full bg-secondary px-5 text-[15px] font-medium text-secondary-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40"
       >
         <Icon className={state === "saving" ? "size-4 animate-spin" : "size-4"} />
         {state === "saving"
@@ -65,7 +65,7 @@ export function SaveButton({
         <span
           id="save-error"
           role="alert"
-          className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-destructive/40 bg-card p-3 text-xs text-destructive shadow-lg"
+          className="absolute right-0 top-full z-20 mt-2 w-64 rounded-card border border-destructive/30 bg-card p-3 text-xs text-destructive shadow-lift"
         >
           {error}
         </span>

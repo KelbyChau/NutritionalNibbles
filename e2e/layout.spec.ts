@@ -23,3 +23,19 @@ test.describe("reduced motion", () => {
     for (const ring of await rings.all()) await expect(ring).toHaveAttribute("data-animate", "false");
   });
 });
+
+test("keyboard focus stays visible", async ({ page }) => {
+  const builder = pages.find((p) => p.name === "builder")!;
+  await builder.open(page);
+  let found = false;
+  for (let i = 0; i < 40 && !found; i++) {
+    await page.keyboard.press("Tab");
+    found = await page.evaluate(() => document.activeElement?.textContent?.trim() === "Optimize");
+  }
+  expect(found).toBe(true);
+  const style = await page.evaluate(() => {
+    const s = getComputedStyle(document.activeElement!);
+    return { outline: s.outlineStyle, shadow: s.boxShadow };
+  });
+  expect(style.outline !== "none" || style.shadow !== "none").toBe(true);
+});
