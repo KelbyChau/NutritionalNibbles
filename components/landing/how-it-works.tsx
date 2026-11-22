@@ -1,52 +1,38 @@
-import { ArrowLeftRight, Search, Target, type LucideIcon } from "lucide-react";
+import { ChartPie, Link2, Sparkles, type LucideIcon } from "lucide-react";
 
-// The real flow: build the recipe from USDA ingredients, choose a goal on
-// the optimize page, then apply swaps and compare.
+// A real sequence, so the steps are numbered.
 const steps: { icon: LucideIcon; title: string; body: string }[] = [
   {
-    icon: Search,
-    title: "Add your ingredients",
-    body: "Search the USDA food list, enter amounts, and set how many servings the recipe makes. Calories and macros update as you go.",
+    icon: Link2,
+    title: "Add or import a recipe",
+    body: "Search the USDA food list and enter amounts, or paste a link to a recipe page and review what was matched.",
   },
   {
-    icon: Target,
-    title: "Pick a goal",
-    body: "More protein, fewer calories, fewer carbs or less fat. You can also ask for a change in your own words.",
+    icon: ChartPie,
+    title: "See the nutrition",
+    body: "Calories, protein, carbs, fat and more for each serving, updated as you change amounts or servings.",
   },
   {
-    icon: ArrowLeftRight,
-    title: "Swap and compare",
-    body: "Apply the swaps you like and see before and after per serving, with a note on taste or texture. Undo anything, then save the recipe.",
+    icon: Sparkles,
+    title: "Ask for a lighter version",
+    body: "Ask for more protein or less sodium in your own words. Every swap shows before and after, and you can undo it.",
   },
 ];
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="scroll-mt-8">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 md:py-24">
-        <h2 className="font-display text-4xl tracking-tight sm:text-5xl">
-          How it works
-        </h2>
-        <p className="mt-3 max-w-[52ch] text-lg leading-relaxed text-muted-foreground">
-          Three steps. Your recipe stays yours: every change is shown before
-          you keep it.
-        </p>
-
-        <ol className="mt-12 grid gap-10 md:grid-cols-3 md:gap-8">
+    <section id="how-it-works" className="scroll-mt-16 px-4 py-20 sm:px-6 md:py-28">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="mx-auto max-w-2xl text-center font-display text-[clamp(2.25rem,5vw,3rem)]">How it works</h2>
+        <ol className="mt-14 grid gap-5 md:grid-cols-3">
           {steps.map(({ icon: Icon, title, body }, i) => (
-            <li key={title} className="flex flex-col">
-              <div className="flex items-center gap-3">
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <span className="text-sm font-medium text-muted-foreground">
-                  Step {i + 1}
-                </span>
-              </div>
-              <h3 className="mt-4 text-xl font-semibold">{title}</h3>
-              <p className="mt-2 max-w-[40ch] leading-relaxed text-muted-foreground">
-                {body}
-              </p>
+            <li key={title} className="surface-paper flex flex-col rounded-card p-7">
+              <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <p className="mt-6 text-[13px] font-medium text-muted-foreground">Step {i + 1}</p>
+              <h3 className="mt-1 text-[21px] font-semibold tracking-[-0.01em]">{title}</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{body}</p>
             </li>
           ))}
         </ol>

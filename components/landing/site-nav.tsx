@@ -4,9 +4,9 @@ import { AuthButton } from "@/components/auth-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import { cn, hasEnvVars } from "@/lib/utils";
 
-// Butter-yellow keyboard focus ring; reads on the cobalt hero.
+// Keyboard focus ring for links on the landing page.
 export const focusRing =
-  "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-transparent";
+  "rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 const links = [
   { href: "#how-it-works", label: "How it works" },
@@ -14,32 +14,19 @@ const links = [
   { href: "/dashboard", label: "Saved recipes" },
 ];
 
+// Frosted, sticky bar: content scrolls underneath it.
 export function SiteNav() {
   return (
-    <header className="relative z-10 w-full">
-      {/* Phones: brand + account on the first row, links on a second row.
-          md and up: one 80px row. */}
-      <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 pb-2 pt-5 sm:px-6 md:h-20 md:flex-nowrap md:py-0">
-        <Link
-          href="/"
-          className={cn(
-            "shrink-0 font-display text-3xl leading-none tracking-tight",
-            focusRing,
-          )}
-        >
+    <header className="surface-glass sticky top-0 z-40 w-full border-b border-border/60">
+      {/* Phones: brand + account on the first row, links on a second row. */}
+      <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-2 sm:px-6 md:h-14 md:flex-nowrap md:py-0">
+        <Link href="/" className={cn("shrink-0 text-[19px] font-semibold tracking-[-0.01em]", focusRing)}>
           NutritionalNibbles
         </Link>
-        <ul className="order-last flex w-full items-center gap-6 text-sm md:order-none md:w-auto md:gap-8">
+        <ul className="order-last flex w-full items-center gap-6 text-[13px] text-foreground/80 md:order-none md:w-auto md:gap-8">
           {links.map((link) => (
             <li key={link.href}>
-              <Link
-                href={link.href}
-                // py-3 gives a ~44px tap target without changing the look.
-                className={cn(
-                  "inline-block py-3 underline-offset-4 hover:underline",
-                  focusRing,
-                )}
-              >
+              <Link href={link.href} className={cn("inline-block py-2 transition-colors hover:text-foreground", focusRing)}>
                 {link.label}
               </Link>
             </li>
