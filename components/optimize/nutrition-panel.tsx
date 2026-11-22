@@ -5,7 +5,9 @@
 import { useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { AnimatedNumber, fmtCount, fmtPercent } from "@/components/animated-number";
+import { NutritionRings } from "@/components/nutrition-rings";
 import { dailyValues, type Nutrients, type RecipeNutrition } from "@/lib/nutrition";
+import { nutritionRings } from "@/lib/nutrition-rings";
 import { cn } from "@/lib/utils";
 
 const factRows: {
@@ -72,15 +74,17 @@ export function NutritionPanel({
     },
     { key: "fat", label: "Fat", color: "bg-macro-fat", kcal: macroKcal.fat },
   ];
+  // Rings always show one serving against the daily value.
+  const rings = nutritionRings(nutrition.known.perServing, nutrition.known.counted, nutrition.items.length);
 
   return (
-    <section className="surface-paper flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
-        <h2 className="font-display text-4xl leading-none tracking-tight">
+    <section className="surface-paper flex min-h-0 flex-1 flex-col overflow-hidden rounded-panel">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
+        <h2 className="text-[28px] font-semibold leading-tight tracking-[-0.015em]">
           Estimated Nutrition
         </h2>
         {isSample && (
-          <p className="mt-2 w-fit rounded-full bg-muted px-3 py-1 text-[11px] font-medium text-foreground">
+          <p className="mt-2 w-fit rounded-full bg-secondary px-3 py-1 text-[12px] font-medium text-muted-foreground">
             Sample data: add ingredients to see yours
           </p>
         )}
@@ -88,7 +92,7 @@ export function NutritionPanel({
         <div
           role="radiogroup"
           aria-label="Show nutrition for"
-          className="mt-4 grid grid-cols-2 rounded-full bg-muted p-1 text-xs"
+          className="mt-4 grid grid-cols-2 rounded-[10px] bg-secondary p-0.5 text-[13px]"
         >
           {(["serving", "recipe"] as const).map((v) => (
             <button
@@ -98,9 +102,9 @@ export function NutritionPanel({
               aria-checked={scope === v}
               onClick={() => setScope(v)}
               className={cn(
-                "rounded-full py-1.5 transition-colors",
+                "rounded-lg py-1.5 transition-[background-color,box-shadow,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 scope === v
-                  ? "bg-primary font-medium text-primary-foreground"
+                  ? "bg-card font-semibold text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)] dark:bg-[hsl(240_2%_30%)]"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -109,7 +113,7 @@ export function NutritionPanel({
           ))}
         </div>
 
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-[13px] text-muted-foreground">
           <AnimatedNumber value={servings} format={fmtCount} />{" "}
           {servings === 1 ? "serving" : "servings"} per recipe
           {hasIngredients && (
@@ -126,7 +130,7 @@ export function NutritionPanel({
         </p>
 
         {(hasIngredients ? nutrition.counted === 0 : !showZeros) ? (
-          <p className="mt-6 rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+          <p className="mt-6 rounded-card bg-secondary p-5 text-[15px] text-muted-foreground">
             {hasIngredients
               ? nutrition.skipped
                   .map((item) => item.name + ": " + item.issue)
@@ -135,58 +139,49 @@ export function NutritionPanel({
           </p>
         ) : (
           <>
-            {/* Calories */}
-            <div className="mt-3 flex items-end justify-between border-y-[6px] border-foreground py-2">
-              <span className="text-lg font-bold">{partialCalories ? "Known calories" : "Calories"}</span>
-              {calories === null && hasIngredients ? (
-                <span className="text-sm text-muted-foreground">Unavailable</span>
-              ) : (
-                <span data-testid="calories-value" className="font-display text-5xl leading-none tabular-nums">
-                  <AnimatedNumber value={calories ?? 0} format={fmtCount} />
-                </span>
-              )}
+            {/* Rings + calories */}
+            <div className="mt-6 flex items-center gap-5">
+              <NutritionRings rings={rings} size={112} stroke={11} gap={3} showLegend={false} testId="rings-panel" />
+              <div className="min-w-0">
+                <p className="text-[15px] font-medium text-muted-foreground">
+                  {partialCalories ? "Known calories" : "Calories"}
+                </p>
+                {calories === null && hasIngredients ? (
+                  <p className="mt-1 text-[15px] text-muted-foreground">Unavailable</p>
+                ) : (
+                  <p className="mt-0.5 flex items-baseline gap-1.5">
+                    <span data-testid="calories-value" className="font-rounded text-5xl font-bold leading-none tracking-[-0.02em] tabular-nums">
+                      <AnimatedNumber value={calories ?? 0} format={fmtCount} />
+                    </span>
+                    <span className="text-[15px] font-medium text-muted-foreground">kcal</span>
+                  </p>
+                )}
+              </div>
             </div>
             {partialCalories && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-3 text-[13px] text-muted-foreground">
                 Calorie subtotal for {calorieCount} of {nutrition.items.length} ingredients.
               </p>
             )}
 
-            {/* Macro split */}
+            {/* Macro split: share of calories */}
             {hasMacroSplit && macroSum > 0 && (
-              <div className="mt-3">
-                <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
-                  {split.map((m) => (
-                    <div
-                      key={m.key}
-                      className={cn(
-                        m.color,
-                        "transition-[width] duration-300 ease-out motion-reduce:transition-none",
-                      )}
-                      style={{ width: `${(m.kcal / macroSum) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <ul className="mt-2 flex justify-between text-xs">
-                  {split.map((m) => (
-                    <li key={m.key} className="flex items-center gap-1.5">
-                      <span className={cn("size-2 rounded-full", m.color)} />
-                      {m.label}{" "}
-                      <span className="tabular-nums text-muted-foreground">
-                        <AnimatedNumber
-                          value={(m.kcal / macroSum) * 100}
-                          format={fmtPercent}
-                        />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ul className="mt-4 flex gap-4 text-[13px]">
+                {split.map((m) => (
+                  <li key={m.key} className="flex items-center gap-1.5">
+                    <span className={cn("size-2 rounded-full", m.color)} />
+                    {m.label}{" "}
+                    <span className="font-rounded tabular-nums text-muted-foreground">
+                      <AnimatedNumber value={(m.kcal / macroSum) * 100} format={fmtPercent} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
 
             {/* Label rows */}
-            <dl className="mt-3 text-sm">
-              <div className="flex justify-end border-b border-foreground/60 pb-1 text-[11px] font-semibold">
+            <dl className="mt-6 text-[15px]">
+              <div className="flex justify-end border-b border-border pb-1.5 text-[12px] font-medium text-muted-foreground">
                 % Daily Value*
               </div>
               {factRows.map((row) => {
@@ -196,15 +191,15 @@ export function NutritionPanel({
                   <div
                     key={row.key}
                     className={cn(
-                      "flex items-baseline justify-between gap-2 border-b border-border py-1.5",
-                      row.sub && "pl-4",
+                      "flex items-baseline justify-between gap-2 border-b border-border/70 py-2.5",
+                      row.sub && "pl-4 text-muted-foreground",
                     )}
                   >
                     <dt>
                       <span className={cn(!row.sub && "font-semibold")}>
                         {row.label}
                       </span>{" "}
-                      <span className="tabular-nums">
+                      <span className="font-rounded tabular-nums">
                         <AnimatedNumber
                           value={value ?? 0}
                           format={(v) => fmtNutrient(v, row.unit)}
@@ -212,7 +207,7 @@ export function NutritionPanel({
                         {partial(row.key) && <sup>†</sup>}
                       </span>
                     </dt>
-                    <dd className="font-semibold tabular-nums">
+                    <dd className="font-rounded font-semibold tabular-nums">
                       {dv && value !== null ? (
                         <AnimatedNumber
                           value={(value / dv) * 100}
@@ -229,7 +224,7 @@ export function NutritionPanel({
 
             {/* Anything we couldn't count */}
             {nutrition.skipped.length > 0 && (
-              <div className="mt-4 rounded-2xl bg-nutrient-carbs/10 p-3 text-xs">
+              <div className="mt-5 rounded-card bg-nutrient-carbs/10 p-4 text-[13px]">
                 <p className="flex items-center gap-1.5 font-semibold">
                   <TriangleAlert className="size-3.5" />
                   Not counted in the totals
@@ -245,9 +240,9 @@ export function NutritionPanel({
             )}
 
             {/* Per-ingredient breakdown */}
-            <details className="group mt-4 text-sm">
+            <details className="group mt-5 text-[15px]">
               <summary className="cursor-pointer list-none font-medium marker:hidden">
-                <span className="underline decoration-foreground/30 underline-offset-4 group-open:decoration-foreground">
+                <span className="text-primary hover:underline hover:underline-offset-4">
                   Breakdown by ingredient
                 </span>
               </summary>
@@ -255,11 +250,11 @@ export function NutritionPanel({
                 {nutrition.items.map((i, idx) => (
                   <li
                     key={`${i.name}-${idx}`}
-                    className="flex items-baseline justify-between gap-2 border-b border-border py-1.5"
+                    className="flex items-baseline justify-between gap-2 border-b border-border/70 py-2"
                   >
                     <span className="min-w-0">
                       <span className="block truncate">{i.name}</span>
-                      <span className="block text-[11px] text-muted-foreground">
+                      <span className="block text-[12px] text-muted-foreground">
                         {i.grams !== null ? (
                           <AnimatedNumber
                             value={i.grams}
@@ -271,7 +266,7 @@ export function NutritionPanel({
                         {i.note && ` · ${i.note}`}
                       </span>
                     </span>
-                    <span className="shrink-0 tabular-nums">
+                    <span className="shrink-0 font-rounded tabular-nums">
                       <AnimatedNumber
                         value={i.nutrients?.kcal ?? 0}
                         format={formatCalories}
@@ -285,7 +280,7 @@ export function NutritionPanel({
           </>
         )}
 
-        <p className="mt-auto pt-4 text-[11px] leading-snug text-muted-foreground">
+        <p className="mt-auto pt-6 text-[12px] leading-snug text-muted-foreground">
           * % Daily Value is based on a 2,000-calorie diet. † Some ingredients
           have no USDA data for this nutrient, so it counts only the ones that
           do (0 when none do).
