@@ -1,12 +1,10 @@
-// Database access for recipes. Plain functions: no requests or responses, so
-// route handlers and server-rendered pages can both use them.
+// Database access for recipes. Plain functions that take a Supabase client,
+// so server-rendered pages and browser components can both use them.
 // Row-level security on public.recipes is the real access control; these
 // filters only narrow results further.
-import type { PostgrestError } from "@supabase/supabase-js";
-import type { Supabase } from "@/lib/http";
-import type { ListOptions, NewRecipe } from "./validation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** One recipe in a list, as GET /api/recipes and the dashboard use it. */
+/** One recipe in a list, as the dashboard uses it. */
 export type RecipeListItem = {
   id: string;
   owner_id: string | null;
@@ -36,27 +34,43 @@ export type RecipePage = {
   next: RecipeCursor | null;
 };
 
+/** Page size for recipe lists. The dashboard loads pages of this size. */
+export const MAX_PAGE_SIZE = 100;
+
+export type ListOptions = {
+  scope: "all" | "mine" | "public";
+  limit: number;
+  /** Start after this recipe (from a previous page's `next`), or null for the first page. */
+  cursor: RecipeCursor | null;
+  signal?: AbortSignal;
+};
+
 /**
  * Columns for recipe lists. `ingredients` is selected only to count it; lists
  * return `ingredient_count` instead of the full ingredient array.
  */
-export const RECIPE_LIST_COLUMNS =
+const RECIPE_LIST_COLUMNS =
   "id, owner_id, title, description, image_url, cuisine, dietary_tags, prep_minutes, cook_minutes, servings, ingredients, calories_per_serving, protein_g_per_serving, carbohydrates_g_per_serving, fat_g_per_serving, is_public, created_at";
 
-/** Every column a full recipe view needs. */
-export const RECIPE_FULL_COLUMNS =
-  "id, owner_id, title, description, image_url, cuisine, dietary_tags, prep_minutes, cook_minutes, servings, ingredients, instructions, calories_per_serving, protein_g_per_serving, carbohydrates_g_per_serving, fat_g_per_serving, parent_recipe_id, is_public, created_at, updated_at";
+// Cursor values go inside a PostgREST filter string, so only accept the shapes
+// Postgres produces: an ISO timestamp and a UUID.
+const ISO_TIMESTAMP_RE =
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * One page of recipes the user can see (public plus their own), newest first.
- * Pass the returned `next` back as before/beforeId to get the following page.
+ * Pass the returned `next` back as `cursor` to get the following page.
  */
 export async function listRecipes(
-  supabase: Supabase,
+  supabase: SupabaseClient,
   userId: string | null,
-  { scope, limit, before, beforeId }: ListOptions,
-): Promise<RecipePage & { error: PostgrestError | null }> {
+  { scope, limit, cursor, signal }: ListOptions,
+): Promise<RecipePage & { error: { message: string } | null }> {
   if (scope === "mine" && !userId) return { recipes: [], next: null, error: null };
+  if (cursor && (!ISO_TIMESTAMP_RE.test(cursor.before) || !UUID_RE.test(cursor.before_id))) {
+    return { recipes: [], next: null, error: { message: "Invalid page cursor" } };
+  }
 
   let query = supabase
     .from("recipes")
@@ -70,16 +84,13 @@ export async function listRecipes(
 
   if (scope === "mine" && userId) query = query.eq("owner_id", userId);
   if (scope === "public") query = query.eq("is_public", true);
-
-  if (before && beforeId) {
-    // Rows after the cursor in (created_at desc, id desc) order. Both values
-    // were validated (ISO timestamp, UUID) so they can't alter the filter.
+  if (cursor) {
+    // Rows after the cursor in (created_at desc, id desc) order.
     query = query.or(
-      `created_at.lt."${before}",and(created_at.eq."${before}",id.lt.${beforeId})`,
+      `created_at.lt."${cursor.before}",and(created_at.eq."${cursor.before}",id.lt.${cursor.before_id})`,
     );
-  } else if (before) {
-    query = query.lt("created_at", before);
   }
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
   if (error) return { recipes: [], next: null, error };
@@ -95,20 +106,12 @@ export async function listRecipes(
   return { recipes, next, error: null };
 }
 
-/** Inserts a private recipe owned by `userId` and returns the saved row. */
-export async function createRecipe(supabase: Supabase, userId: string, recipe: NewRecipe) {
-  return supabase
-    .from("recipes")
-    .insert({ ...recipe, owner_id: userId, is_public: false })
-    .select(RECIPE_FULL_COLUMNS)
-    .single();
-}
-
 /**
  * Deletes one of the user's private recipes. Returns the deleted id, or null
- * when nothing matched (missing, someone else's, or public).
+ * when nothing matched (missing, someone else's, or public). Row-level security
+ * only lets owners delete their own private recipes, whichever client calls this.
  */
-export async function deleteRecipe(supabase: Supabase, userId: string, id: string) {
+export async function deleteRecipe(supabase: SupabaseClient, userId: string, id: string) {
   const { data, error } = await supabase
     .from("recipes")
     .delete()
@@ -116,7 +119,7 @@ export async function deleteRecipe(supabase: Supabase, userId: string, id: strin
     .eq("owner_id", userId)
     .select("id");
 
-  return { deletedId: data?.[0]?.id ?? null, error };
+  return { deletedId: (data?.[0]?.id as string | undefined) ?? null, error };
 }
 
 function toListItem(row: Record<string, unknown>): RecipeListItem {

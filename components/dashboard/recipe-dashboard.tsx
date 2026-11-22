@@ -35,7 +35,7 @@ import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-// Same shape GET /api/recipes returns for each recipe.
+// Same shape listRecipes() returns for each recipe.
 export type DashboardRecipe = RecipeListItem;
 
 type Category = "all" | "mine" | "saved" | "quick" | "protein" | "light";
