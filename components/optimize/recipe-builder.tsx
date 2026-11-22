@@ -3,47 +3,26 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  Dumbbell,
-  Flame,
-  LayoutGrid,
-  Minus,
-  Plus,
-  UtensilsCrossed,
-  WandSparkles,
-  Users,
-  X,
-} from "lucide-react";
+
+import { Dumbbell, Flame, LayoutGrid, Minus, Plus, UtensilsCrossed, WandSparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SaveButton } from "@/components/save-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { parseIngredient } from "@/lib/ingredients";
+
 import { calculateNutrition } from "@/lib/nutrition";
 import { saveMyRecipe } from "@/lib/my-recipes";
 import { createClient } from "@/lib/supabase/client";
-import { exactFood, type FoundationFood } from "@/lib/foundation-foods";
-import { cn } from "@/lib/utils";
-import { BUTTER, IngredientArt, Stat, AnimatedNumber, fmtCount, type Ingredient } from "./shared";
-import { Combobox } from "./combobox";
+import { type FoundationFood } from "@/lib/foundation-foods";
+
+import { Stat, AnimatedNumber, fmtCount, type Ingredient } from "./shared";
+
 import { NutritionPanel, fmtNutrient, formatCalories } from "./nutrition-panel";
-import { alreadyAddedMessage, ingredientOptions, ingredientWithFood, makeIngredient, useUsdaFoods } from "./ingredients";
+import { ingredientWithFood, makeIngredient, useUsdaFoods } from "./ingredients";
 import { clearDraft, loadDraft, saveDraft } from "./draft";
 import { RecipeImport, type ImportedRecipe } from "./recipe-import";
+import { Stage } from "./builder/stage";
+import { AddIngredient, IngredientCard } from "./builder/ingredient-list";
 
-// Where ingredient art sits on the stage, in % of the stage box. The first
-// ingredient takes the big center spot; the rest scatter around it.
-const spots = [
-  { left: 50, top: 50, size: 11 },
-  { left: 24, top: 30, size: 6.5 },
-  { left: 76, top: 28, size: 6.5 },
-  { left: 22, top: 72, size: 6 },
-  { left: 78, top: 72, size: 6 },
-  { left: 50, top: 16, size: 5 },
-  { left: 50, top: 86, size: 5 },
-  { left: 10, top: 50, size: 4.5 },
-  { left: 90, top: 50, size: 4.5 },
-];
 
 // Dummy recipe shown in the nutrition panel while the ingredient list is
 // empty. Set SHOW_SAMPLE_NUTRITION to false to turn it off.
@@ -437,253 +416,5 @@ function RecipeBuilderPage() {
         </aside>
       </div>
     </div>
-  );
-}
-
-// ---- Stage -------------------------------------------------------------------
-
-function Stage({
-  title,
-  onTitle,
-  ingredients,
-  nameMissing,
-  inputRef,
-}: {
-  title: string;
-  onTitle: (t: string) => void;
-  ingredients: Ingredient[];
-  nameMissing: boolean;
-  inputRef: React.Ref<HTMLInputElement>;
-}) {
-  const shown = ingredients.slice(0, spots.length);
-  return (
-    <div className="relative mb-4 min-h-[20rem] flex-1">
-      <input
-        ref={inputRef}
-        value={title}
-        onChange={(e) => onTitle(e.target.value)}
-        placeholder="Name your dish"
-        aria-label="Dish name"
-        aria-required
-        aria-invalid={nameMissing || undefined}
-        aria-describedby={nameMissing ? "dish-name-error" : undefined}
-        className={cn(
-          "relative z-10 w-full max-w-[70%] border-b-2 border-transparent bg-transparent font-display text-4xl leading-tight tracking-tight outline-none placeholder:text-muted-foreground/60 sm:text-5xl",
-          nameMissing && "border-destructive placeholder:text-destructive/70",
-        )}
-      />
-      {nameMissing && (
-        <p
-          id="dish-name-error"
-          role="alert"
-          className="relative z-10 mt-1 text-sm font-medium text-destructive"
-        >
-          Add a name for your recipe first.
-        </p>
-      )}
-      <div className="absolute inset-0 top-14 flex items-center justify-center">
-        {/* the "plate": butter blob from the landing hero */}
-        <div className="relative aspect-square h-full max-h-[30rem] max-w-full">
-          <div
-            aria-hidden
-            className={cn(
-              "absolute inset-[4%] rounded-[58%_42%_47%_53%/45%_52%_48%_55%]",
-              BUTTER,
-            )}
-          />
-          {/* New ingredients pop onto the plate, removed ones shrink away, and
-              the rest glide to their new spot (CSS transition on left/top).
-              Centering uses motion's x/y so it composes with the scale. */}
-          <AnimatePresence initial={false}>
-            {shown.length === 0 ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex flex-col items-center justify-center text-center text-[hsl(230_50%_16%)]"
-              >
-                <span
-                  aria-hidden
-                  className="flex size-20 items-center justify-center rounded-full bg-card shadow-[0_12px_24px_-16px_hsl(230_60%_15%/0.5)]"
-                >
-                  <UtensilsCrossed className="size-9 text-primary" />
-                </span>
-                <p className="mt-3 max-w-[18ch] font-display text-2xl leading-tight">
-                  Add ingredients and they show up here
-                </p>
-              </motion.div>
-            ) : (
-              shown.map((ing, idx) => {
-                const spot = spots[idx];
-                return (
-                  <motion.div
-                    key={ing.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{
-                      opacity: 0,
-                      scale: 0.9,
-                      transition: { duration: 0.15, ease: [0.4, 0, 1, 1] },
-                    }}
-                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute transition-[left,top] duration-300 ease-out motion-reduce:transition-none"
-                    style={{
-                      left: `${spot.left}%`,
-                      top: `${spot.top}%`,
-                      x: "-50%",
-                      y: "-50%",
-                    }}
-                    title={ing.name}
-                  >
-                    <IngredientArt
-                      ingredient={ing}
-                      sizeRem={spot.size}
-                      className="drop-shadow-[0_12px_14px_hsl(230_60%_15%/0.3)]"
-                    />
-                  </motion.div>
-                );
-              })
-            )}
-          </AnimatePresence>
-          {ingredients.length > spots.length && (
-            <span className="absolute bottom-2 right-2 rounded-full bg-card px-3 py-1 text-xs">
-              +{ingredients.length - spots.length} more
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---- Ingredient list -----------------------------------------------------------
-
-function IngredientCard({
-  ingredient,
-  onAmountChange,
-  onRemove,
-}: {
-  ingredient: Ingredient;
-  onAmountChange: (amount: string) => void;
-  onRemove: () => void;
-}) {
-  // USDA names look like "Chicken Breast (breast, boneless, skinless, raw)":
-  // show the main name large and the details small underneath.
-  const match = ingredient.name.match(/^(.*?)\s*\((.*)\)$/);
-  const heading = match ? match[1] : ingredient.name;
-  const details = match ? match[2] : "";
-
-  return (
-    <article className="relative flex min-h-28 overflow-hidden rounded-3xl border border-border bg-card duration-300 animate-in fade-in slide-in-from-right-4">
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 p-4 pr-3">
-        <div className="min-w-0">
-          <h3
-            title={ingredient.name}
-            className="break-words font-display text-2xl leading-tight tracking-tight"
-          >
-            {heading}
-          </h3>
-          {details && (
-            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
-              {details}
-            </p>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            aria-label={`Amount of ${ingredient.name} in ${ingredient.unit || "pieces"}`}
-            className="w-16 rounded border border-border bg-background px-2 py-1 text-foreground"
-            value={ingredient.amount}
-            onChange={(event) => onAmountChange(event.target.value)}
-          />
-          {ingredient.unit || "pieces"}
-        </label>
-      </div>
-      {/* Picture column: the text never runs under it or the × button */}
-      <div className="relative w-24 shrink-0">
-        <div
-          className={cn(
-            "absolute -right-6 top-1/2 flex size-28 -translate-y-1/2 items-center justify-center rounded-full",
-            BUTTER,
-          )}
-        >
-          <IngredientArt
-            ingredient={ingredient}
-            sizeRem={3.5}
-            className="-ml-4"
-          />
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${ingredient.name}`}
-        className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-card/90 backdrop-blur transition-colors hover:bg-destructive hover:text-destructive-foreground"
-      >
-        <X className="size-4" />
-      </button>
-    </article>
-  );
-}
-
-function AddIngredient({
-  foods,
-  ingredients,
-  onAdd,
-}: {
-  foods: FoundationFood[];
-  ingredients: Ingredient[];
-  onAdd: (
-    food: FoundationFood,
-    parsed: { amount: string; unit: string },
-  ) => void;
-}) {
-  const [value, setValue] = useState("");
-  const [error, setError] = useState("");
-  // Foods already in the recipe aren't suggested.
-  const options = ingredientOptions(value, foods, ingredients);
-  function submit(text: string, option?: { food: FoundationFood }) {
-    const parsed = parseIngredient(text);
-    const food = option?.food ?? (parsed && exactFood(foods, parsed.name));
-    if (!parsed || !food) {
-      setError(
-        options.length
-          ? "Choose a USDA food from the suggestions."
-          : "No matching USDA food. Try another ingredient.",
-      );
-      return;
-    }
-    const existing = ingredientWithFood(ingredients, food);
-    if (existing) {
-      setError(alreadyAddedMessage(existing));
-      return;
-    }
-    onAdd(food, parsed);
-    setValue("");
-    setError("");
-  }
-
-  return (
-    <Combobox
-      value={value}
-      onChange={(v) => {
-        setValue(v);
-        setError("");
-      }}
-      onSubmit={submit}
-      options={options}
-      renderIcon={(o) => (
-        <span className="text-lg leading-none" aria-hidden>
-          {o.emoji}
-        </span>
-      )}
-      placeholder="Add ingredient, e.g. 200g rice"
-      label="Add an ingredient"
-      leading={<Plus className="size-4 text-primary" />}
-      error={error}
-      listPosition="below"
-    />
   );
 }
