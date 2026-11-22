@@ -32,6 +32,7 @@ import {
   type RecipeNutrition,
 } from "@/lib/nutrition";
 import { createClient } from "@/lib/supabase/client";
+import { loadUsdaCatalog } from "@/lib/usda-catalog";
 import {
   foodLabel,
   foodSuggestions,
@@ -96,48 +97,24 @@ export const SHADOW = "shadow-[0_24px_48px_-24px_hsl(230_60%_15%/0.45)]";
 
 // ---- USDA catalog ------------------------------------------------------------
 
-const PAGE = 1000; // Supabase returns at most 1,000 rows per request
-
-// Every USDA food the app can use, from both catalogs: Foundation Foods
-// (newer data, listed first so it wins ties in search) and SR Legacy
-// (~7,800 more, including brand-name foods). One list, one search field.
+// Every USDA food the app can use (both catalogs), loaded once per tab;
+// see lib/usda-catalog.ts.
 export function useUsdaFoods() {
   const [foods, setFoods] = useState<FoundationFood[]>([]);
   const [status, setStatus] = useState("Loading USDA ingredients…");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let current = true;
-    async function load() {
-      try {
-        const supabase = createClient();
-        const [foundation, legacyCount] = await Promise.all([
-          supabase.from("foundation_foods").select().order("fdc_id"),
-          supabase.from("sr_legacy_foods").select("fdc_id", { count: "exact", head: true }),
-        ]);
-        if (foundation.error || !foundation.data?.length || legacyCount.error)
-          throw new Error("Catalog unavailable");
-        const pages = await Promise.all(
-          Array.from({ length: Math.ceil((legacyCount.count ?? 0) / PAGE) }, (_, i) =>
-            supabase
-              .from("sr_legacy_foods")
-              .select()
-              .order("fdc_id")
-              .range(i * PAGE, (i + 1) * PAGE - 1),
-          ),
-        );
-        if (pages.some((page) => page.error)) throw new Error("Catalog unavailable");
-        if (current) {
-          setFoods([
-            ...foundation.data.map((f) => ({ ...f, source: "foundation" as const })),
-            ...pages.flatMap((page) => page.data ?? []).map((f) => ({ ...f, source: "sr_legacy" as const })),
-          ]);
-          setStatus("");
-        }
-      } catch {
+    loadUsdaCatalog(createClient()).then(
+      (list) => {
+        if (!current) return;
+        setFoods(list);
+        setStatus("");
+      },
+      () => {
         if (current) setStatus("Couldn’t load USDA ingredients.");
-      }
-    }
-    void load();
+      },
+    );
     return () => {
       current = false;
     };
