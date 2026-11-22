@@ -10,7 +10,7 @@ import {
   parseAmount,
   type Nutrients,
 } from "@/lib/nutrition";
-import type { FoundationFood } from "@/lib/foundation-foods";
+import { foodName, type FoundationFood } from "@/lib/foundation-foods";
 import { makeIngredient, type GoalKey, type Ingredient } from "./shared";
 
 type SwapRule = {
@@ -139,7 +139,7 @@ const shortNames: Record<number, string> = {
 };
 
 export function shortName(food: FoundationFood) {
-  return shortNames[food.fdc_id] ?? food.description.split(",")[0];
+  return shortNames[food.fdc_id] ?? foodName(food.description);
 }
 
 export type Change = {
