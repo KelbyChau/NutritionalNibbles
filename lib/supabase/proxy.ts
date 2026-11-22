@@ -46,12 +46,35 @@ export async function updateSession(request: NextRequest) {
   // with the Supabase client, your users may be randomly logged out.
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
+  let signedIn = Boolean(user);
+
+  // Local testing only: `npm run local` sets LOCAL_DEMO_EMAIL/PASSWORD to the
+  // first seeded account (supabase/seed.sql), so visitors who aren't signed
+  // in, or are only an anonymous guest, are signed in as that demo user.
+  // Never set for the shared project, and only against a local database.
+  const demoEmail = process.env.LOCAL_DEMO_EMAIL;
+  const demoPassword = process.env.LOCAL_DEMO_PASSWORD;
+  const isLocalDb = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  );
+  if (
+    demoEmail &&
+    demoPassword &&
+    isLocalDb &&
+    (!user || user.is_anonymous === true)
+  ) {
+    const { data: signIn } = await supabase.auth.signInWithPassword({
+      email: demoEmail,
+      password: demoPassword,
+    });
+    if (signIn.user) signedIn = true;
+  }
 
   if (
     request.nextUrl.pathname !== "/" &&
     !request.nextUrl.pathname.startsWith("/optimize") &&
     !request.nextUrl.pathname.startsWith("/dashboard") &&
-    !user &&
+    !signedIn &&
     // API routes (e.g. future AI endpoints) should check sign-in themselves and
     // return JSON errors, so API callers aren't redirected to the login page.
     !request.nextUrl.pathname.startsWith("/api/") &&

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowRight,
   ChefHat,
@@ -11,7 +11,6 @@ import {
   Dumbbell,
   Flame,
   Globe,
-  Heart,
   Leaf,
   ListFilter,
   Salad,
@@ -32,21 +31,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { useAllRecipes } from "@/components/dashboard/use-all-recipes";
 import type { RecipeCursor, RecipeListItem } from "@/lib/recipes/queries";
-import { deleteMyRecipe, isMyRecipe, loadMyRecipes } from "@/lib/my-recipes";
-import { createClient } from "@/lib/supabase/client";
+import { deleteMyRecipe } from "@/lib/my-recipes";
 import { cn } from "@/lib/utils";
 
 // Same shape listRecipes() returns for each recipe.
 export type DashboardRecipe = RecipeListItem;
 
-type Category = "all" | "mine" | "saved" | "quick" | "protein" | "light";
+type Category = "all" | "mine" | "quick" | "protein" | "light";
 type Sort = "newest" | "quickest" | "protein" | "calories";
 
 const categories: { key: Category; label: string; icon: LucideIcon }[] = [
   { key: "all", label: "Recipes", icon: UtensilsCrossed },
   { key: "mine", label: "Yours", icon: ChefHat },
-  { key: "saved", label: "Saved", icon: Heart },
   { key: "quick", label: "Quick", icon: Timer },
   { key: "protein", label: "Protein", icon: Dumbbell },
   { key: "light", label: "Light", icon: Leaf },
@@ -66,10 +64,11 @@ const BUTTER = "bg-[hsl(45_84%_72%)]";
 
 const totalMinutes = (r: DashboardRecipe) => r.prep_minutes + r.cook_minutes;
 
-// For now the dashboard lists only the recipes saved in this browser; the
-// built-in database recipes (initialRecipes / nextCursor) aren't shown.
+// Lists the signed-in (or anonymous) user's own recipes. Recipes are private
+// to their owner (RLS), e.g. the seeded ones belong to demo@example.com.
 export function RecipeDashboard({
-  savedIds,
+  initialRecipes,
+  nextCursor,
   userId,
   userEmail,
 }: {
@@ -77,20 +76,32 @@ export function RecipeDashboard({
   initialRecipes: DashboardRecipe[];
   /** Where the remaining pages start, or null if the first page is everything. */
   nextCursor: RecipeCursor | null;
-  savedIds: string[];
   userId: string | null;
   userEmail: string | null;
   loadError: string | null;
 }) {
-  // Recipes saved from the builder / optimize page live in this browser.
-  const [recipes, setRecipes] = useState<DashboardRecipe[]>([]);
-  useEffect(() => setRecipes(loadMyRecipes()), []);
+  const { recipes: allRecipes } = useAllRecipes(initialRecipes, nextCursor);
+  // Deleted here but still in the server's list until the next load.
+  const [deleted, setDeleted] = useState<Set<string>>(() => new Set());
+  const recipes = useMemo(
+    () =>
+      allRecipes.filter(
+        (r) => userId !== null && r.owner_id === userId && !deleted.has(r.id),
+      ),
+    [allRecipes, userId, deleted],
+  );
 
-  function removeRecipe(id: string) {
+  async function removeRecipe(id: string) {
+    setDeleted((d) => new Set(d).add(id));
     try {
-      setRecipes(deleteMyRecipe(id));
+      await deleteMyRecipe(id);
     } catch {
-      // Storage blocked: leave the list as it is.
+      // Put it back if the database refused.
+      setDeleted((d) => {
+        const next = new Set(d);
+        next.delete(id);
+        return next;
+      });
     }
   }
   const [query, setQuery] = useState("");
@@ -98,7 +109,6 @@ export function RecipeDashboard({
   const [cuisine, setCuisine] = useState(ANY);
   const [diet, setDiet] = useState(ANY);
   const [sort, setSort] = useState<Sort>("newest");
-  const [saved, setSaved] = useState(() => new Set(savedIds));
   // Nothing is selected until a card is clicked; the big view falls back to
   // the first recipe but no card is outlined.
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -125,13 +135,9 @@ export function RecipeDashboard({
       }
       if (cuisine !== ANY && r.cuisine !== cuisine) return false;
       if (diet !== ANY && !r.dietary_tags.includes(diet)) return false;
-      const isSaved =
-        isMyRecipe(r.id) || (r.owner_id !== null && r.owner_id === userId);
       switch (category) {
         case "mine":
-          return isSaved;
-        case "saved":
-          return saved.has(r.id);
+          return r.owner_id !== null && r.owner_id === userId;
         case "quick":
           return totalMinutes(r) <= 30;
         case "protein":
@@ -164,42 +170,12 @@ export function RecipeDashboard({
           return b.created_at.localeCompare(a.created_at);
       }
     });
-  }, [recipes, query, category, cuisine, diet, sort, saved, userId]);
+  }, [recipes, query, category, cuisine, diet, sort, userId]);
 
   const featured =
     visible.find((r) => r.id === selectedId) ?? visible[0] ?? null;
 
   const canSave = userId !== null;
-
-  async function toggleSave(recipeId: string) {
-    if (!userId) return;
-    const wasSaved = saved.has(recipeId);
-    const next = new Set(saved);
-    if (wasSaved) next.delete(recipeId);
-    else next.add(recipeId);
-    setSaved(next);
-
-    const supabase = createClient();
-    const { error } = wasSaved
-      ? await supabase
-          .from("saved_recipes")
-          .delete()
-          .eq("user_id", userId)
-          .eq("recipe_id", recipeId)
-      : await supabase
-          .from("saved_recipes")
-          .insert({ user_id: userId, recipe_id: recipeId });
-
-    if (error) {
-      // Roll back the optimistic change.
-      setSaved((current) => {
-        const reverted = new Set(current);
-        if (wasSaved) reverted.add(recipeId);
-        else reverted.delete(recipeId);
-        return reverted;
-      });
-    }
-  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background lg:h-screen lg:overflow-hidden">
@@ -244,8 +220,8 @@ export function RecipeDashboard({
           className="flex shrink-0 gap-2 overflow-x-auto lg:w-20 lg:flex-col lg:items-center lg:gap-5 lg:overflow-visible lg:pt-20"
         >
           {categories
-            // "Yours" and "Saved" only make sense when signed in.
-            .filter(({ key }) => canSave || (key !== "saved" && key !== "mine"))
+            // "Yours" only makes sense when signed in.
+            .filter(({ key }) => canSave || key !== "mine")
             .map(({ key, label, icon: Icon }) => {
               const active = category === key;
               return (
@@ -332,15 +308,7 @@ export function RecipeDashboard({
           </div>
 
           {featured ? (
-            <FeaturedRecipe
-              recipe={featured}
-              saved={saved.has(featured.id)}
-              onToggleSave={
-                canSave && !isMyRecipe(featured.id)
-                  ? () => toggleSave(featured.id)
-                  : undefined
-              }
-            />
+            <FeaturedRecipe recipe={featured} />
           ) : (
             <EmptyState loadError={null} hasRecipes={recipes.length > 0} />
           )}
@@ -362,20 +330,14 @@ export function RecipeDashboard({
                 <RecipeCard
                   recipe={recipe}
                   active={recipe.id === selectedId}
-                  saved={saved.has(recipe.id)}
                   onSelect={() => {
                     setSelectedId(recipe.id);
                     // Open it in the recipe builder with its ingredients.
                     router.push(`/optimize?recipe=${recipe.id}`);
                   }}
-                  onToggleSave={
-                    canSave && !isMyRecipe(recipe.id)
-                      ? () => toggleSave(recipe.id)
-                      : undefined
-                  }
                   onDelete={
-                    isMyRecipe(recipe.id)
-                      ? () => removeRecipe(recipe.id)
+                    recipe.owner_id === userId
+                      ? () => void removeRecipe(recipe.id)
                       : undefined
                   }
                 />
@@ -432,15 +394,7 @@ function FilterMenu({
   );
 }
 
-function FeaturedRecipe({
-  recipe,
-  saved,
-  onToggleSave,
-}: {
-  recipe: DashboardRecipe;
-  saved: boolean;
-  onToggleSave?: () => void;
-}) {
+function FeaturedRecipe({ recipe }: { recipe: DashboardRecipe }) {
   const stats: {
     icon: LucideIcon;
     value: string;
@@ -494,19 +448,6 @@ function FeaturedRecipe({
             {recipe.title}
           </h2>
         </div>
-        {onToggleSave && (
-          <button
-            type="button"
-            onClick={onToggleSave}
-            aria-pressed={saved}
-            aria-label={saved ? "Remove from saved" : "Save recipe"}
-            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-foreground/40"
-          >
-            <Heart
-              className={cn("size-5", saved && "fill-macro-fat text-macro-fat")}
-            />
-          </button>
-        )}
       </div>
 
       <div className="relative flex min-h-[16rem] flex-1 items-center justify-center py-6">
@@ -562,16 +503,12 @@ function FeaturedRecipe({
 function RecipeCard({
   recipe,
   active,
-  saved,
   onSelect,
-  onToggleSave,
   onDelete,
 }: {
   recipe: DashboardRecipe;
   active: boolean;
-  saved: boolean;
   onSelect: () => void;
-  onToggleSave?: () => void;
   onDelete?: () => void;
 }) {
   return (
@@ -650,25 +587,6 @@ function RecipeCard({
           </div>
         )}
       </div>
-
-      {onToggleSave && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSave();
-          }}
-          aria-pressed={saved}
-          aria-label={
-            saved ? `Remove ${recipe.title} from saved` : `Save ${recipe.title}`
-          }
-          className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-full bg-card/90 backdrop-blur"
-        >
-          <Heart
-            className={cn("size-4", saved && "fill-macro-fat text-macro-fat")}
-          />
-        </button>
-      )}
     </article>
   );
 }

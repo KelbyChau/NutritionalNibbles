@@ -10,27 +10,21 @@ async function DashboardData() {
   const { data: auth } = await supabase.auth.getClaims();
   const userId = (auth?.claims?.sub as string | undefined) ?? null;
   const email = auth?.claims?.email as string | undefined;
-  // No login required. Signed-out visitors see public recipes; signed-in
-  // users also see their own private ones (RLS) and can save recipes.
+  // No login required, but recipes are private to their owner (RLS):
+  // signed-out visitors see none, signed-in users see their own.
   //
   // The first page is queried here on the server. If there are more recipes,
   // the dashboard queries the rest from the browser (useAllRecipes).
-  const [firstPage, savedRes] = await Promise.all([
-    listRecipes(supabase, userId, {
-      scope: "all",
-      limit: MAX_PAGE_SIZE,
-      cursor: null,
-    }),
-    userId
-      ? supabase.from("saved_recipes").select("recipe_id").eq("user_id", userId)
-      : Promise.resolve({ data: [] as { recipe_id: string }[] }),
-  ]);
+  const firstPage = await listRecipes(supabase, userId, {
+    scope: "all",
+    limit: MAX_PAGE_SIZE,
+    cursor: null,
+  });
 
   return (
     <RecipeDashboard
       initialRecipes={firstPage.recipes}
       nextCursor={firstPage.next}
-      savedIds={(savedRes.data ?? []).map((s) => s.recipe_id)}
       userId={userId}
       userEmail={email ?? null}
       loadError={firstPage.error?.message ?? null}
